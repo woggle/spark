@@ -22,6 +22,8 @@ import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage._
+import org.apache.spark.executor.{BlockAccess, BlockAccessType, DataReadMethod, InputMetrics}
+import org.apache.spark.executor.TaskMetrics
 
 /**
  * Spark class responsible for passing RDDs partition contents to the BlockManager and making
@@ -41,6 +43,7 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
 
     val key = RDDBlockId(rdd.id, partition.index)
     logDebug(s"Looking for partition $key")
+    val metrics = context.taskMetrics
     blockManager.get(key) match {
       case Some(blockResult) =>
         // Partition is already materialized, so just return its values
@@ -49,6 +52,12 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
         existingMetrics.incBytesRead(blockResult.bytes)
 
         val iter = blockResult.data.asInstanceOf[Iterator[T]]
+        TaskMetrics.ifExtraMetrics {
+          val inputMetrics = InputMetrics(blockResult.readMethod)
+          inputMetrics.incBytesRead(blockResult.bytes)
+          metrics.recordBlockAccess(key,
+              BlockAccess(BlockAccessType.Read, Some(inputMetrics)))
+        }
         new InterruptibleIterator[T](context, iter) {
           override def next(): T = {
             existingMetrics.incRecordsRead(1)
@@ -56,6 +65,12 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
           }
         }
       case None =>
+        // Record the failed read.
+        TaskMetrics.ifExtraMetrics {
+          metrics.recordBlockAccess(key,
+            BlockAccess(BlockAccessType.Read, Some(InputMetrics(DataReadMethod.Unavailable))))
+        }
+
         // Acquire a lock for loading this partition
         // If another thread already holds the lock, wait for it to finish return its results
         val storedValues = acquireLockForPartition[T](key)
@@ -76,7 +91,9 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
           // Otherwise, cache the values and keep track of any updates in block statuses
           val updatedBlocks = new ArrayBuffer[(BlockId, BlockStatus)]
           val cachedValues = putInBlockManager(key, computedValues, storageLevel, updatedBlocks)
-          val metrics = context.taskMetrics
+          TaskMetrics.ifExtraMetrics {
+            metrics.recordBlockAccess(key, BlockAccess(BlockAccessType.Write))
+          }
           val lastUpdatedBlocks = metrics.updatedBlocks.getOrElse(Seq[(BlockId, BlockStatus)]())
           metrics.updatedBlocks = Some(lastUpdatedBlocks ++ updatedBlocks.toSeq)
           new InterruptibleIterator(context, cachedValues)
