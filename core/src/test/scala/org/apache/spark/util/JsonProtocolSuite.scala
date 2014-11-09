@@ -559,6 +559,7 @@ class JsonProtocolSuite extends SparkFunSuite {
     assertOptionEquals(
       metrics1.inputMetrics, metrics2.inputMetrics, assertInputMetricsEquals)
     assertOptionEquals(metrics1.updatedBlocks, metrics2.updatedBlocks, assertBlocksEquals)
+    assertOptionEquals(metrics1.accessedBlocks, metrics2.accessedBlocks, assertAccessedBlocksEquals)
   }
 
   private def assertEquals(metrics1: ShuffleReadMetrics, metrics2: ShuffleReadMetrics) {
@@ -689,6 +690,16 @@ class JsonProtocolSuite extends SparkFunSuite {
     assertSeqEquals(blocks1, blocks2, assertBlockEquals)
   }
 
+  private def assertAccessedBlockEquals(b1: (BlockId, BlockAccess), b2: (BlockId, BlockAccess)) {
+    assert(b1 === b2)
+  }
+
+  private def assertAccessedBlocksEquals(
+      blocks1: Seq[(BlockId, BlockAccess)],
+      blocks2: Seq[(BlockId, BlockAccess)]) {
+    assertSeqEquals(blocks1, blocks2, assertAccessedBlockEquals)
+  }
+
   private def assertBlockEquals(b1: (BlockId, BlockStatus), b2: (BlockId, BlockStatus)) {
     assert(b1 === b2)
   }
@@ -793,6 +804,11 @@ class JsonProtocolSuite extends SparkFunSuite {
       outputMetrics.setBytesWritten(a + b + c)
       outputMetrics.setRecordsWritten(if (hasRecords) (a + b + c)/100 else -1)
       t.outputMetrics = Some(outputMetrics)
+      t.accessedBlocks = Some(Seq(
+        BlockId("rdd_0_0") -> BlockAccess(BlockAccessType.Read,
+                                          Some(new InputMetrics(DataReadMethod.Unavailable))),
+        BlockId("rdd_0_0") -> BlockAccess(BlockAccessType.Write)
+      ))
     } else {
       val sw = new ShuffleWriteMetrics
       sw.incShuffleBytesWritten(a + b + c)
@@ -1244,6 +1260,24 @@ class JsonProtocolSuite extends SparkFunSuite {
       |          "ExternalBlockStore Size": 0,
       |          "Disk Size": 0
       |        }
+      |      }
+      |    ],
+      |    "Accessed Blocks": [
+      |      {
+      |        "Block ID": "rdd_0_0",
+      |        "Access": {
+      |           "Access Type": "Read",
+      |           "Input Metrics": {
+      |             "Data Read Method": "Unavailable",
+      |             "Bytes Read": 0
+      |           }
+      |         }
+      |      },
+      |      {
+      |        "Block ID": "rdd_0_0",
+      |        "Access": {
+      |           "Access Type": "Write"
+      |         }
       |      }
       |    ]
       |  }

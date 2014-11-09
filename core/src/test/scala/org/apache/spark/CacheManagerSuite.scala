@@ -21,7 +21,7 @@ import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfter
 import org.scalatest.mock.MockitoSugar
 
-import org.apache.spark.executor.{DataReadMethod, TaskMetrics}
+import org.apache.spark.executor.{BlockAccess, BlockAccessType, InputMetrics, DataReadMethod, TaskMetrics}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage._
 
@@ -38,7 +38,9 @@ class CacheManagerSuite extends SparkFunSuite with LocalSparkContext with Before
   var rdd3: RDD[Int] = _
 
   before {
-    sc = new SparkContext("local", "test")
+    val config = new SparkConf()
+    config.set("spark.extraMetrics.enabled", "true")
+    sc = new SparkContext("local", "test", config)
     blockManager = mock[BlockManager]
     cacheManager = new CacheManager(blockManager)
     split = new Partition { override def index: Int = 0 }
@@ -91,10 +93,34 @@ class CacheManagerSuite extends SparkFunSuite with LocalSparkContext with Before
     assert(value.toList === List(1, 2, 3, 4))
   }
 
-  test("verify task metrics updated correctly") {
+  test("verify task metrics updated correctly on write") {
     cacheManager = sc.env.cacheManager
     val context = TaskContext.empty()
     cacheManager.getOrCompute(rdd3, split, context, StorageLevel.MEMORY_ONLY)
+    val unavailableInputMetrics = InputMetrics(DataReadMethod.Unavailable)
+    val unavailableRead = BlockAccess(BlockAccessType.Read, Some(unavailableInputMetrics))
     assert(context.taskMetrics.updatedBlocks.getOrElse(Seq()).size === 2)
+    assert(context.taskMetrics.accessedBlocks == Some(Seq(
+        RDDBlockId(rdd3.id, split.index) -> unavailableRead,
+        RDDBlockId(rdd2.id, split.index) -> unavailableRead,
+        RDDBlockId(rdd2.id, split.index) -> BlockAccess(BlockAccessType.Write),
+        RDDBlockId(rdd3.id, split.index) -> BlockAccess(BlockAccessType.Write)
+    )))
+    assert(context.taskMetrics.inputMetrics == None)
+  }
+
+  test("verify task metrics updated correctly on read") {
+    val result = new BlockResult(Array(5, 6, 7).iterator, DataReadMethod.Memory, 12)
+    when(blockManager.get(RDDBlockId(0, 0))).thenReturn(Some(result))
+
+    val context = new TaskContextImpl(0, 0, 0, 0, null)
+    cacheManager.getOrCompute(rdd, split, context, StorageLevel.MEMORY_ONLY)
+    assert(context.taskMetrics.updatedBlocks.getOrElse(Seq()).size === 0)
+    val expectInputMetrics = InputMetrics(DataReadMethod.Memory)
+    expectInputMetrics.incBytesRead(12)
+    assert(context.taskMetrics.inputMetrics == Some(expectInputMetrics))
+    assert(context.taskMetrics.accessedBlocks == Some(Seq(
+          RDDBlockId(rdd.id, split.index) -> BlockAccess(BlockAccessType.Read, Some(expectInputMetrics))
+    )))
   }
 }
