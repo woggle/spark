@@ -123,6 +123,11 @@ class TaskMetrics extends Serializable {
   var updatedBlocks: Option[Seq[(BlockId, BlockStatus)]] = None
 
   /**
+   * Estimated size of in-memory data returned from Aggregator iterator.
+   */
+  var shuffleMemoryMetrics: Option[ShuffleMemoryMetrics] = None
+
+  /**
    * A task may have multiple shuffle readers for multiple dependencies. To avoid synchronization
    * issues from readers in different threads, in-progress tasks use a ShuffleReadMetrics for each
    * dependency, and merge these metrics before reporting them to the driver. This method returns
@@ -240,6 +245,23 @@ class ShuffleReadMetrics extends Serializable {
    * Total number of remote bytes read from the shuffle by this task
    */
   var remoteBytesRead: Long = _
+}
+
+/**
+ * :: DeveloperApi ::
+ * Metrics pertaining to shuffle data read in a given task.
+ */
+@DeveloperApi
+class ShuffleMemoryMetrics extends Serializable {
+  /**
+   * Number of groups returned by Aggregators in this task.
+   */
+  var shuffleOutputGroups: Long = 0L
+
+  /**
+   * Estimated in-memory size in bytes returned by Aggregators in this task.
+   */
+  var shuffleOutputBytes: Long = 0L
 }
 
 /**
