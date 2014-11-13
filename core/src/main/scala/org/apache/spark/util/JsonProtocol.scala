@@ -228,6 +228,8 @@ private[spark] object JsonProtocol {
       taskMetrics.shuffleReadMetrics.map(shuffleReadMetricsToJson).getOrElse(JNothing)
     val shuffleWriteMetrics =
       taskMetrics.shuffleWriteMetrics.map(shuffleWriteMetricsToJson).getOrElse(JNothing)
+    val shuffleMemoryMetrics =
+      taskMetrics.shuffleMemoryMetrics.map(shuffleMemoryMetricsToJson).getOrElse(JNothing)
     val inputMetrics =
       taskMetrics.inputMetrics.map(inputMetricsToJson).getOrElse(JNothing)
     val outputMetrics =
@@ -249,6 +251,7 @@ private[spark] object JsonProtocol {
     ("Disk Bytes Spilled" -> taskMetrics.diskBytesSpilled) ~
     ("Shuffle Read Metrics" -> shuffleReadMetrics) ~
     ("Shuffle Write Metrics" -> shuffleWriteMetrics) ~
+    ("Shuffle Memory Metrics" -> shuffleMemoryMetrics) ~
     ("Input Metrics" -> inputMetrics) ~
     ("Output Metrics" -> outputMetrics) ~
     ("Updated Blocks" -> updatedBlocks)
@@ -264,6 +267,11 @@ private[spark] object JsonProtocol {
   def shuffleWriteMetricsToJson(shuffleWriteMetrics: ShuffleWriteMetrics): JValue = {
     ("Shuffle Bytes Written" -> shuffleWriteMetrics.shuffleBytesWritten) ~
     ("Shuffle Write Time" -> shuffleWriteMetrics.shuffleWriteTime)
+  }
+
+  def shuffleMemoryMetricsToJson(shuffleMemoryMetrics: ShuffleMemoryMetrics): JValue = {
+    ("Shuffle Output Groups" -> shuffleMemoryMetrics.shuffleOutputGroups) ~
+    ("Shuffle Output Bytes" -> shuffleMemoryMetrics.shuffleOutputBytes)
   }
 
   def inputMetricsToJson(inputMetrics: InputMetrics): JValue = {
@@ -579,6 +587,8 @@ private[spark] object JsonProtocol {
     metrics.resultSerializationTime = (json \ "Result Serialization Time").extract[Long]
     metrics.memoryBytesSpilled = (json \ "Memory Bytes Spilled").extract[Long]
     metrics.diskBytesSpilled = (json \ "Disk Bytes Spilled").extract[Long]
+    metrics.shuffleMemoryMetrics =
+      Utils.jsonOption(json \ "Shuffle Memory Metrics").map(shuffleMemoryMetricsFromJson)
     metrics.setShuffleReadMetrics(
       Utils.jsonOption(json \ "Shuffle Read Metrics").map(shuffleReadMetricsFromJson))
     metrics.shuffleWriteMetrics =
@@ -611,6 +621,13 @@ private[spark] object JsonProtocol {
     val metrics = new ShuffleWriteMetrics
     metrics.shuffleBytesWritten = (json \ "Shuffle Bytes Written").extract[Long]
     metrics.shuffleWriteTime = (json \ "Shuffle Write Time").extract[Long]
+    metrics
+  }
+
+  def shuffleMemoryMetricsFromJson(json: JValue): ShuffleMemoryMetrics = {
+    val metrics = new ShuffleMemoryMetrics
+    metrics.shuffleOutputGroups = (json \ "Shuffle Output Groups").extract[Long]
+    metrics.shuffleOutputBytes = (json \ "Shuffle Output Bytes").extract[Long]
     metrics
   }
 

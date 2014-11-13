@@ -18,7 +18,9 @@
 package org.apache.spark
 
 import org.apache.spark.annotation.DeveloperApi
+import org.apache.spark.util.{SizeEstimator, SizeTrackingIterator}
 import org.apache.spark.util.collection.{AppendOnlyMap, ExternalAppendOnlyMap}
+import org.apache.spark.executor.ShuffleMemoryMetrics
 
 /**
  * :: DeveloperApi ::
@@ -36,6 +38,15 @@ case class Aggregator[K, V, C] (
 
   private val externalSorting = SparkEnv.get.conf.getBoolean("spark.shuffle.spill", true)
 
+  private def incrementMemoryMetrics(context: TaskContext, bytes: Long, groups: Long) {
+    Option(context).foreach { c =>
+      val memoryMetrics = c.taskMetrics.shuffleMemoryMetrics.getOrElse(new ShuffleMemoryMetrics)
+      memoryMetrics.shuffleOutputGroups += groups
+      memoryMetrics.shuffleOutputBytes += bytes
+      c.taskMetrics.shuffleMemoryMetrics = Some(memoryMetrics)
+    }
+  }
+
   @deprecated("use combineValuesByKey with TaskContext argument", "0.9.0")
   def combineValuesByKey(iter: Iterator[_ <: Product2[K, V]]): Iterator[(K, C)] =
     combineValuesByKey(iter, null)
@@ -52,6 +63,7 @@ case class Aggregator[K, V, C] (
         kv = iter.next()
         combiners.changeValue(kv._1, update)
       }
+      incrementMemoryMetrics(context, SizeEstimator.estimate(combiners), combiners.size)
       combiners.iterator
     } else {
       val combiners = new ExternalAppendOnlyMap[K, V, C](createCombiner, mergeValue, mergeCombiners)
@@ -62,7 +74,10 @@ case class Aggregator[K, V, C] (
         c.taskMetrics.memoryBytesSpilled += combiners.memoryBytesSpilled
         c.taskMetrics.diskBytesSpilled += combiners.diskBytesSpilled
       }
-      combiners.iterator
+      val updateMetrics = (totalBytes: Long, totalEntries: Long) => {
+        incrementMemoryMetrics(context, totalBytes, totalEntries)
+      }
+      new SizeTrackingIterator(combiners.iterator, updateMetrics)
     }
   }
 
@@ -83,6 +98,7 @@ case class Aggregator[K, V, C] (
         kc = iter.next()
         combiners.changeValue(kc._1, update)
       }
+      incrementMemoryMetrics(context, SizeEstimator.estimate(combiners), combiners.size)
       combiners.iterator
     } else {
       val combiners = new ExternalAppendOnlyMap[K, C, C](identity, mergeCombiners, mergeCombiners)
@@ -96,7 +112,10 @@ case class Aggregator[K, V, C] (
         c.taskMetrics.memoryBytesSpilled += combiners.memoryBytesSpilled
         c.taskMetrics.diskBytesSpilled += combiners.diskBytesSpilled
       }
-      combiners.iterator
+      val updateMetrics = (totalBytes: Long, totalEntries: Long) => {
+        incrementMemoryMetrics(context, totalBytes, totalEntries)
+      }
+      new SizeTrackingIterator(combiners.iterator, updateMetrics)
     }
   }
 }
