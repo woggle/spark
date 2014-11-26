@@ -16,6 +16,7 @@ control
 docs
 fairscheduler.xml.template
 spark-defaults.conf.template
+spark-defaults.conf
 log4j.properties
 log4j.properties.template
 metrics.properties.template

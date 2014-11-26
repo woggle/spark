@@ -19,6 +19,7 @@ package org.apache.spark.executor
 
 import scala.collection.mutable.ArrayBuffer
 
+import org.apache.spark.SparkEnv
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.storage.{BlockId, BlockStatus}
 
@@ -150,6 +151,16 @@ class TaskMetrics extends Serializable {
 
 private[spark] object TaskMetrics {
   def empty: TaskMetrics = new TaskMetrics
+
+  def extraMetricsEnabled: Boolean = {
+    return SparkEnv.get.conf.getBoolean("spark.extraMetrics.enabled", false)
+  }
+
+  def ifExtraMetrics(func: => Unit): Unit = {
+    if (extraMetricsEnabled) {
+      func
+    }
+  }
 }
 
 /**
