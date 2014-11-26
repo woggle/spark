@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import scala.collection.mutable.ArrayBuffer
 
+import org.apache.spark.SparkEnv
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.executor.DataReadMethod.DataReadMethod
 import org.apache.spark.storage.{BlockId, BlockStatus}
@@ -249,6 +250,15 @@ private[spark] object TaskMetrics {
   def getCachedHostName(host: String): String = {
     val canonicalHost = hostNameCache.putIfAbsent(host, host)
     if (canonicalHost != null) canonicalHost else host
+  
+  def extraMetricsEnabled: Boolean = {
+    return SparkEnv.get.conf.getBoolean("spark.extraMetrics.enabled", false)
+  }
+
+  def ifExtraMetrics(func: => Unit): Unit = {
+    if (extraMetricsEnabled) {
+      func
+    }
   }
 }
 
