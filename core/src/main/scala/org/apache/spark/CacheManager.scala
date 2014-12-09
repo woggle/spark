@@ -44,7 +44,7 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
     blockManager.get(key) match {
       case Some(blockResult) =>
         // Partition is already materialized, so just return its values
-        context.taskMetrics.inputMetrics = Some(blockResult.inputMetrics)
+        context.taskMetrics.addInputMetrics(blockResult.inputMetrics)
         new InterruptibleIterator(context, blockResult.data.asInstanceOf[Iterator[T]])
 
       case None =>
@@ -66,9 +66,9 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
           }
 
           // Otherwise, cache the values and keep track of any updates in block statuses
+          val metrics = context.taskMetrics
           val updatedBlocks = new ArrayBuffer[(BlockId, BlockStatus)]
           val cachedValues = putInBlockManager(key, computedValues, storageLevel, updatedBlocks)
-          val metrics = context.taskMetrics
           val lastUpdatedBlocks = metrics.updatedBlocks.getOrElse(Seq[(BlockId, BlockStatus)]())
           metrics.updatedBlocks = Some(lastUpdatedBlocks ++ updatedBlocks.toSeq)
           new InterruptibleIterator(context, cachedValues)

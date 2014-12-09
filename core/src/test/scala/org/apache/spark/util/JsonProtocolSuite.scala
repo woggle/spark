@@ -413,7 +413,7 @@ class JsonProtocolSuite extends FunSuite {
       metrics1.shuffleReadMetrics, metrics2.shuffleReadMetrics, assertShuffleReadEquals)
     assertOptionEquals(
       metrics1.shuffleWriteMetrics, metrics2.shuffleWriteMetrics, assertShuffleWriteEquals)
-    assertOptionEquals(
+    assertOptionSeqEquals(
       metrics1.inputMetrics, metrics2.inputMetrics, assertInputMetricsEquals)
     assertOptionEquals(metrics1.updatedBlocks, metrics2.updatedBlocks, assertBlocksEquals)
   }
@@ -517,6 +517,15 @@ class JsonProtocolSuite extends FunSuite {
     if (opt1.isDefined) {
       assert(opt2.isDefined)
       assertEquals(opt1.get, opt2.get)
+    } else {
+      assert(!opt2.isDefined)
+    }
+  }
+
+  private def assertOptionSeqEquals[T](opt1: Option[Seq[T]], opt2: Option[Seq[T]], assertEquals: (T, T) => Unit) {
+    if (opt1.isDefined) {
+      assert(opt2.isDefined)
+      assertSeqEquals(opt1.get, opt2.get, assertEquals)
     } else {
       assert(!opt2.isDefined)
     }
@@ -634,7 +643,7 @@ class JsonProtocolSuite extends FunSuite {
     if (hasHadoopInput) {
       val inputMetrics = new InputMetrics(DataReadMethod.Hadoop)
       inputMetrics.bytesRead = d + e + f
-      t.inputMetrics = Some(inputMetrics)
+      t.inputMetrics = Some(Seq(inputMetrics))
     } else {
       val sr = new ShuffleReadMetrics
       sr.remoteBytesRead = b + d
@@ -967,10 +976,12 @@ class JsonProtocolSuite extends FunSuite {
       |      "Shuffle Bytes Written": 1200,
       |      "Shuffle Write Time": 1500
       |    },
-      |    "Input Metrics": {
-      |      "Data Read Method": "Hadoop",
-      |      "Bytes Read": 2100
-      |    },
+      |    "Input Metrics": [
+      |       {
+      |         "Data Read Method": "Hadoop",
+      |         "Bytes Read": 2100
+      |       }
+      |     ],
       |    "Updated Blocks": [
       |      {
       |        "Block ID": "rdd_0_0",
@@ -1044,10 +1055,12 @@ class JsonProtocolSuite extends FunSuite {
       |    "Result Serialization Time": 700,
       |    "Memory Bytes Spilled": 800,
       |    "Disk Bytes Spilled": 0,
-      |    "Input Metrics": {
-      |      "Data Read Method": "Hadoop",
-      |      "Bytes Read": 2100
-      |    },
+      |    "Input Metrics": [
+      |      {
+      |        "Data Read Method": "Hadoop",
+      |        "Bytes Read": 2100
+      |      }
+      |    ],
       |    "Output Metrics": {
       |      "Data Write Method": "Hadoop",
       |      "Bytes Written": 1200

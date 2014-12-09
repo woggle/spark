@@ -245,7 +245,9 @@ private[spark] object JsonProtocol {
     val shuffleWriteMetrics =
       taskMetrics.shuffleWriteMetrics.map(shuffleWriteMetricsToJson).getOrElse(JNothing)
     val inputMetrics =
-      taskMetrics.inputMetrics.map(inputMetricsToJson).getOrElse(JNothing)
+      taskMetrics.inputMetrics.map { metrics =>
+        JArray(metrics.toList.map(inputMetricsToJson))
+      }.getOrElse(JNothing)
     val outputMetrics =
       taskMetrics.outputMetrics.map(outputMetricsToJson).getOrElse(JNothing)
     val updatedBlocks =
@@ -605,7 +607,9 @@ private[spark] object JsonProtocol {
     metrics.shuffleWriteMetrics =
       Utils.jsonOption(json \ "Shuffle Write Metrics").map(shuffleWriteMetricsFromJson)
     metrics.inputMetrics =
-      Utils.jsonOption(json \ "Input Metrics").map(inputMetricsFromJson)
+      Utils.jsonOption(json \ "Input Metrics").map { value =>
+        value.extract[List[JValue]].map(inputMetricsFromJson)
+      }
     metrics.outputMetrics =
       Utils.jsonOption(json \ "Output Metrics").map(outputMetricsFromJson)
     metrics.updatedBlocks =

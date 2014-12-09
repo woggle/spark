@@ -77,7 +77,7 @@ class ExecutorsListener(storageStatusListener: StorageStatusListener) extends Sp
       if (metrics != null) {
         metrics.inputMetrics.foreach { inputMetrics =>
           executorToInputBytes(eid) =
-            executorToInputBytes.getOrElse(eid, 0L) + inputMetrics.bytesRead
+            executorToInputBytes.getOrElse(eid, 0L) + inputMetrics.map(_.bytesRead).sum
         }
         metrics.outputMetrics.foreach { outputMetrics =>
           executorToOutputBytes(eid) =

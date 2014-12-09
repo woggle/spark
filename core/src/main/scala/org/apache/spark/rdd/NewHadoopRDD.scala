@@ -109,7 +109,6 @@ class NewHadoopRDD[K, V](
       logInfo("Input split: " + split.serializableHadoopSplit)
       val conf = confBroadcast.value.value
 
-      val inputMetrics = new InputMetrics(DataReadMethod.Hadoop)
       // Find a function that will return the FileSystem bytes read by this thread. Do this before
       // creating RecordReader, because RecordReader's constructor might read some bytes
       val bytesReadCallback = if (split.serializableHadoopSplit.value.isInstanceOf[FileSplit]) {
@@ -118,8 +117,9 @@ class NewHadoopRDD[K, V](
       } else {
         None
       }
+      var lastBytesRead = 0L
       if (bytesReadCallback.isDefined) {
-        context.taskMetrics.inputMetrics = Some(inputMetrics)
+        context.taskMetrics.addInputMetrics(DataReadMethod.Hadoop, 0L)
       }
 
       val attemptId = newTaskAttemptID(jobTrackerId, id, isMap = true, split.index, 0)
@@ -159,7 +159,10 @@ class NewHadoopRDD[K, V](
             && bytesReadCallback.isDefined) {
           recordsSinceMetricsUpdate = 0
           val bytesReadFn = bytesReadCallback.get
-          inputMetrics.bytesRead = bytesReadFn()
+          val currentBytesRead = bytesReadFn()
+          context.taskMetrics.addInputMetrics(
+            DataReadMethod.Hadoop, currentBytesRead - lastBytesRead)
+          lastBytesRead = currentBytesRead
         } else {
           recordsSinceMetricsUpdate += 1
         }
@@ -174,13 +177,13 @@ class NewHadoopRDD[K, V](
           // Update metrics with final amount
           if (bytesReadCallback.isDefined) {
             val bytesReadFn = bytesReadCallback.get
-            inputMetrics.bytesRead = bytesReadFn()
+            context.taskMetrics.addInputMetrics(DataReadMethod.Hadoop, bytesReadFn())
           } else if (split.serializableHadoopSplit.value.isInstanceOf[FileSplit]) {
             // If we can't get the bytes read from the FS stats, fall back to the split size,
             // which may be inaccurate.
             try {
-              inputMetrics.bytesRead = split.serializableHadoopSplit.value.getLength
-              context.taskMetrics.inputMetrics = Some(inputMetrics)
+              context.taskMetrics.addInputMetrics(
+                DataReadMethod.Hadoop, split.serializableHadoopSplit.value.getLength)
             } catch {
               case e: java.io.IOException =>
                 logWarning("Unable to get input size to set InputMetrics for task", e)

@@ -24,7 +24,7 @@ import scala.xml.{Node, Unparsed}
 
 import org.apache.commons.lang3.StringEscapeUtils
 
-import org.apache.spark.executor.TaskMetrics
+import org.apache.spark.executor.{TaskMetrics, InputMetrics}
 import org.apache.spark.ui.{ToolTips, WebUIPage, UIUtils}
 import org.apache.spark.ui.jobs.UIData._
 import org.apache.spark.util.{Utils, Distribution}
@@ -269,7 +269,7 @@ private[ui] class StagePage(parent: StagesTab) extends WebUIPage("stage") {
             Distribution(data).get.getQuantiles().map(d => <td>{Utils.bytesToString(d.toLong)}</td>)
 
           val inputSizes = validTasks.map { case TaskUIData(_, metrics, _) =>
-            metrics.get.inputMetrics.map(_.bytesRead).getOrElse(0L).toDouble
+            metrics.get.inputMetrics.map(_.map(_.bytesRead).sum).getOrElse(0L).toDouble
           }
           val inputQuantiles = <td>Input</td> +: getFormattedSizeQuantiles(inputSizes)
 
@@ -351,6 +351,11 @@ private[ui] class StagePage(parent: StagesTab) extends WebUIPage("stage") {
     }
   }
 
+  private def inputMetricsToString(inputMetrics: Seq[InputMetrics]): String = {
+    inputMetrics.map(m => s"${Utils.bytesToString(m.bytesRead)} " +
+      s"(${m.readMethod.toString.toLowerCase()})").mkString(", ")
+  }
+
   def taskRow(
       hasAccumulators: Boolean,
       hasInput: Boolean,
@@ -373,10 +378,8 @@ private[ui] class StagePage(parent: StagesTab) extends WebUIPage("stage") {
       val accumulatorsReadable = maybeAccumulators.map{acc => s"${acc.name}: ${acc.update.get}"}
 
       val maybeInput = metrics.flatMap(_.inputMetrics)
-      val inputSortable = maybeInput.map(_.bytesRead.toString).getOrElse("")
-      val inputReadable = maybeInput
-        .map(m => s"${Utils.bytesToString(m.bytesRead)} (${m.readMethod.toString.toLowerCase()})")
-        .getOrElse("")
+      val inputSortable = maybeInput.map(_.map(_.bytesRead).sum.toString).getOrElse("")
+      val inputReadable = maybeInput.map(inputMetricsToString).getOrElse("")
 
       val maybeOutput = metrics.flatMap(_.outputMetrics)
       val outputSortable = maybeOutput.map(_.bytesWritten.toString).getOrElse("")

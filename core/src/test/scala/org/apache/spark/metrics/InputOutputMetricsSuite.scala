@@ -45,7 +45,7 @@ class InputOutputMetricsSuite extends FunSuite with SharedSparkContext with Shou
     val taskBytesRead = new ArrayBuffer[Long]()
     sc.addSparkListener(new SparkListener() {
       override def onTaskEnd(taskEnd: SparkListenerTaskEnd) {
-        taskBytesRead += taskEnd.taskMetrics.inputMetrics.get.bytesRead
+        taskBytesRead += taskEnd.taskMetrics.inputMetrics.get.map(_.bytesRead).sum
       }
     })
     sc.textFile("file://" + file.getAbsolutePath, 2).count()
@@ -68,7 +68,7 @@ class InputOutputMetricsSuite extends FunSuite with SharedSparkContext with Shou
     val taskBytesRead = new ArrayBuffer[Long]()
     sc.addSparkListener(new SparkListener() {
       override def onTaskEnd(taskEnd: SparkListenerTaskEnd) {
-        taskBytesRead += taskEnd.taskMetrics.inputMetrics.get.bytesRead
+        taskBytesRead += taskEnd.taskMetrics.inputMetrics.get.map(_.bytesRead).sum
       }
     })
     sc.textFile("file://" + file.getAbsolutePath, 2).count()

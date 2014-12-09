@@ -213,7 +213,8 @@ class HadoopRDD[K, V](
       logInfo("Input split: " + split.inputSplit)
       val jobConf = getJobConf()
 
-      val inputMetrics = new InputMetrics(DataReadMethod.Hadoop)
+      var lastBytesRead = 0L
+
       // Find a function that will return the FileSystem bytes read by this thread. Do this before
       // creating RecordReader, because RecordReader's constructor might read some bytes
       val bytesReadCallback = if (split.inputSplit.value.isInstanceOf[FileSplit]) {
@@ -223,7 +224,7 @@ class HadoopRDD[K, V](
         None
       }
       if (bytesReadCallback.isDefined) {
-        context.taskMetrics.inputMetrics = Some(inputMetrics)
+        context.taskMetrics.addInputMetrics(DataReadMethod.Hadoop, 0L)
       }
 
       var reader: RecordReader[K, V] = null
@@ -252,7 +253,10 @@ class HadoopRDD[K, V](
             && bytesReadCallback.isDefined) {
           recordsSinceMetricsUpdate = 0
           val bytesReadFn = bytesReadCallback.get
-          inputMetrics.bytesRead = bytesReadFn()
+          val currentBytesRead = bytesReadFn()
+          context.taskMetrics.addInputMetrics(
+            DataReadMethod.Hadoop, currentBytesRead - lastBytesRead)
+          lastBytesRead = currentBytesRead
         } else {
           recordsSinceMetricsUpdate += 1
         }
@@ -264,13 +268,15 @@ class HadoopRDD[K, V](
           reader.close()
           if (bytesReadCallback.isDefined) {
             val bytesReadFn = bytesReadCallback.get
-            inputMetrics.bytesRead = bytesReadFn()
+            context.taskMetrics.addInputMetrics(DataReadMethod.Hadoop, bytesReadFn())
           } else if (split.inputSplit.value.isInstanceOf[FileSplit]) {
             // If we can't get the bytes read from the FS stats, fall back to the split size,
             // which may be inaccurate.
             try {
-              inputMetrics.bytesRead = split.inputSplit.value.getLength
-              context.taskMetrics.inputMetrics = Some(inputMetrics)
+              val currentBytesRead = split.inputSplit.value.getLength
+              context.taskMetrics.addInputMetrics(
+                DataReadMethod.Hadoop, currentBytesRead - lastBytesRead)
+              lastBytesRead = currentBytesRead
             } catch {
               case e: java.io.IOException =>
                 logWarning("Unable to get input size to set InputMetrics for task", e)

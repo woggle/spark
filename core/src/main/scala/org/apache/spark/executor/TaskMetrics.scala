@@ -80,7 +80,24 @@ class TaskMetrics extends Serializable {
    * If this task reads from a HadoopRDD or from persisted data, metrics on how much data was read
    * are stored here.
    */
-  var inputMetrics: Option[InputMetrics] = None
+  var inputMetrics: Option[Seq[InputMetrics]] = None
+
+  private[spark] def addInputMetrics(readMethod: DataReadMethod.Value, bytesRead: Long) {
+    var oldMetricsSeq = inputMetrics.getOrElse(Seq[InputMetrics]())
+    inputMetrics = Some(oldMetricsSeq.filter(_.readMethod == readMethod).headOption match {
+      case Some(oldEntry) =>
+        oldEntry.bytesRead += bytesRead
+        oldMetricsSeq
+      case None =>
+        val newEntry = InputMetrics(readMethod)
+        newEntry.bytesRead = bytesRead
+        oldMetricsSeq :+ newEntry
+    })
+  }
+
+  private[spark] def addInputMetrics(newMetrics: InputMetrics) {
+    addInputMetrics(newMetrics.readMethod, newMetrics.bytesRead)
+  }
 
   /**
    * If this task writes data externally (e.g. to a distributed filesystem), metrics on how much
