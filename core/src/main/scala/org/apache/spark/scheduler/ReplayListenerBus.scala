@@ -25,6 +25,7 @@ import org.apache.hadoop.fs.{Path, FileSystem}
 import org.json4s.jackson.JsonMethods._
 
 import org.apache.spark.Logging
+import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.io.CompressionCodec
 import org.apache.spark.util.JsonProtocol
 
@@ -34,7 +35,8 @@ import org.apache.spark.util.JsonProtocol
  * This assumes the given paths are valid log files, where each line can be deserialized into
  * exactly one SparkListenerEvent.
  */
-private[spark] class ReplayListenerBus(
+@DeveloperApi
+class ReplayListenerBus(
     logPaths: Seq[Path],
     fileSystem: FileSystem,
     compressionCodec: Option[CompressionCodec])
@@ -86,5 +88,13 @@ private[spark] class ReplayListenerBus(
   /** If a compression codec is specified, wrap the given stream in a compression stream. */
   private def wrapForCompression(stream: InputStream): InputStream = {
     compressionCodec.map(_.compressedInputStream(stream)).getOrElse(stream)
+  }
+}
+
+@DeveloperApi
+object ReplayListenerBus {
+  def fromLogDirectory(path: Path, fs: FileSystem): ReplayListenerBus = {
+    val elogInfo = EventLoggingListener.parseLoggingInfo(path, fs)
+    new ReplayListenerBus(elogInfo.logPaths, fs, elogInfo.compressionCodec)
   }
 }
