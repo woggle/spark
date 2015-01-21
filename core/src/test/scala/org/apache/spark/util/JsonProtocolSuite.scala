@@ -75,6 +75,7 @@ class JsonProtocolSuite extends FunSuite {
     val blockManagerRemoved = SparkListenerBlockManagerRemoved(2L,
       BlockManagerId("Scarce", "to be counted...", 100))
     val unpersistRdd = SparkListenerUnpersistRDD(12345)
+    val broadcastCreated = SparkListenerBroadcastCreated(12345L, Some(5000L), Some(4000L))
     val applicationStart = SparkListenerApplicationStart("The winner of all", Some("appId"),
       42L, "Garfield", Some("appAttempt"))
     val applicationEnd = SparkListenerApplicationEnd(42L)
@@ -96,6 +97,7 @@ class JsonProtocolSuite extends FunSuite {
     testEvent(blockManagerAdded, blockManagerAddedJsonString)
     testEvent(blockManagerRemoved, blockManagerRemovedJsonString)
     testEvent(unpersistRdd, unpersistRDDJsonString)
+    testEvent(broadcastCreated, broadcastCreatedJsonString)
     testEvent(applicationStart, applicationStartJsonString)
     testEvent(applicationEnd, applicationEndJsonString)
     testEvent(executorAdded, executorAddedJsonString)
@@ -440,6 +442,10 @@ class JsonProtocolSuite extends FunSuite {
         assertEquals(e1.executorInfo, e2.executorInfo)
       case (e1: SparkListenerExecutorRemoved, e2: SparkListenerExecutorRemoved) =>
         assert(e1.executorId == e1.executorId)
+      case (e1: SparkListenerBroadcastCreated, e2: SparkListenerBroadcastCreated) =>
+        assert(e1.broadcastId == e2.broadcastId)
+        assert(e1.memorySize == e2.memorySize)
+        assert(e1.serializedSize == e2.serializedSize)
       case (e1, e2) =>
         assert(e1 === e2)
       case _ => fail("Events don't match in types!")
@@ -1563,6 +1569,16 @@ class JsonProtocolSuite extends FunSuite {
       |{
       |  "Event": "SparkListenerUnpersistRDD",
       |  "RDD ID": 12345
+      |}
+    """
+
+  private val broadcastCreatedJsonString =
+    """
+      |{
+      |  "Event": "SparkListenerBroadcastCreated",
+      |  "Broadcast ID": 12345,
+      |  "Memory Size": 5000,
+      |  "Serialized Size": 4000
       |}
     """
 

@@ -116,11 +116,19 @@ case class SparkListenerApplicationStart(appName: String, appId: Option[String],
 @DeveloperApi
 case class SparkListenerApplicationEnd(time: Long) extends SparkListenerEvent
 
+@DeveloperApi
+case class SparkListenerBroadcastCreated(broadcastId: Long, memorySize: Option[Long],
+  serializedSize: Option[Long]) extends SparkListenerEvent
+
+
 /**
  * An internal class that describes the metadata of an event log.
  * This event is not meant to be posted to listeners downstream.
  */
 private[spark] case class SparkListenerLogStart(sparkVersion: String) extends SparkListenerEvent
+
+/** An event used in the listener to shutdown the listener daemon thread. */
+private[spark] case object SparkListenerShutdown extends SparkListenerEvent
 
 /**
  * :: DeveloperApi ::
@@ -210,6 +218,11 @@ trait SparkListener {
    * Called when the driver removes an executor.
    */
   def onExecutorRemoved(executorRemoved: SparkListenerExecutorRemoved) { }
+
+  /**
+   * Called when a broadcast is registered.
+   */
+  def onBroadcastCreated(broadcastCreated: SparkListenerBroadcastCreated) { }
 }
 
 /**

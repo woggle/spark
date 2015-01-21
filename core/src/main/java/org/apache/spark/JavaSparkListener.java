@@ -34,6 +34,7 @@ import org.apache.spark.scheduler.SparkListenerTaskEnd;
 import org.apache.spark.scheduler.SparkListenerTaskGettingResult;
 import org.apache.spark.scheduler.SparkListenerTaskStart;
 import org.apache.spark.scheduler.SparkListenerUnpersistRDD;
+import org.apache.spark.scheduler.SparkListenerBroadcastCreated;
 
 /**
  * Java clients should extend this class instead of implementing
@@ -94,4 +95,7 @@ public class JavaSparkListener implements SparkListener {
 
   @Override
   public void onExecutorRemoved(SparkListenerExecutorRemoved executorRemoved) { }
+
+  @Override
+  public void onBroadcastCreated(SparkListenerBroadcastCreated broadcastCreated) { }
 }

@@ -90,8 +90,11 @@ private[spark] object JsonProtocol {
         executorAddedToJson(executorAdded)
       case executorRemoved: SparkListenerExecutorRemoved =>
         executorRemovedToJson(executorRemoved)
+      case broadcastCreated : SparkListenerBroadcastCreated =>
+        broadcastCreatedToJson(broadcastCreated)
       case logStart: SparkListenerLogStart =>
         logStartToJson(logStart)
+
       // These aren't used, but keeps compiler happy
       case SparkListenerExecutorMetricsUpdate(_, _) => JNothing
     }
@@ -222,6 +225,14 @@ private[spark] object JsonProtocol {
     ("Event" -> Utils.getFormattedClassName(logStart)) ~
     ("Spark Version" -> SPARK_VERSION)
   }
+
+  def broadcastCreatedToJson(broadcastCreated: SparkListenerBroadcastCreated): JValue = {
+    ("Event" -> Utils.getFormattedClassName(broadcastCreated)) ~
+    ("Broadcast ID" -> broadcastCreated.broadcastId) ~
+    ("Memory Size" -> broadcastCreated.memorySize.map(JInt(_)).getOrElse(JNothing)) ~
+    ("Serialized Size" -> broadcastCreated.serializedSize.map(JInt(_)).getOrElse(JNothing))
+  }
+
 
   /** ------------------------------------------------------------------- *
    * JSON serialization methods for classes SparkListenerEvents depend on |
@@ -483,6 +494,7 @@ private[spark] object JsonProtocol {
     val executorAdded = Utils.getFormattedClassName(SparkListenerExecutorAdded)
     val executorRemoved = Utils.getFormattedClassName(SparkListenerExecutorRemoved)
     val logStart = Utils.getFormattedClassName(SparkListenerLogStart)
+    val broadcastCreated = Utils.getFormattedClassName(SparkListenerBroadcastCreated)
 
     (json \ "Event").extract[String] match {
       case `stageSubmitted` => stageSubmittedFromJson(json)
@@ -501,6 +513,7 @@ private[spark] object JsonProtocol {
       case `executorAdded` => executorAddedFromJson(json)
       case `executorRemoved` => executorRemovedFromJson(json)
       case `logStart` => logStartFromJson(json)
+      case `broadcastCreated` => broadcastCreatedFromJson(json)
     }
   }
 
@@ -616,6 +629,14 @@ private[spark] object JsonProtocol {
     val sparkVersion = (json \ "Spark Version").extract[String]
     SparkListenerLogStart(sparkVersion)
   }
+
+  def broadcastCreatedFromJson(json: JValue): SparkListenerBroadcastCreated = {
+    val id = (json \ "Broadcast ID").extract[Long]
+    val memorySize = Utils.jsonOption(json \ "Memory Size").map(_.extract[Long])
+    val serializedSize = Utils.jsonOption(json \ "Serialized Size").map(_.extract[Long])
+    SparkListenerBroadcastCreated(id, memorySize, serializedSize)
+  }
+
 
   /** --------------------------------------------------------------------- *
    * JSON deserialization methods for classes SparkListenerEvents depend on |
