@@ -21,6 +21,10 @@ import java.io.Serializable
 
 import org.apache.spark.SparkException
 import org.apache.spark.Logging
+import org.apache.spark.executor.BlockAccess
+import org.apache.spark.executor.BlockAccessType
+import org.apache.spark.executor.TaskMetrics
+import org.apache.spark.storage.BroadcastBlockId
 import org.apache.spark.util.Utils
 
 import scala.reflect.ClassTag
@@ -67,6 +71,13 @@ abstract class Broadcast[T: ClassTag](val id: Long) extends Serializable with Lo
   /** Get the broadcasted value. */
   def value: T = {
     assertValid()
+    TaskMetrics.ifExtraMetrics {
+      val context = org.apache.spark.TaskContext.get()
+      if (context != null) {
+        val metrics = context.taskMetrics()
+        metrics.recordBlockAccess(BroadcastBlockId(id), BlockAccess(BlockAccessType.Read))
+      }
+    }
     getValue()
   }
 
@@ -124,6 +135,18 @@ abstract class Broadcast[T: ClassTag](val id: Long) extends Serializable with Lo
    * define their own way to get the value.
    */
   protected def getValue(): T
+
+  /**
+   * Estimate stored (serialized/network) size, if supported.
+   */
+  protected def doEstimateSerializedSize(): Option[Long] = None
+  private[spark] def estimateSerializedSize(): Option[Long] = doEstimateSerializedSize()
+
+  /**
+   * Estimate size in unserialized in memory, if supported.
+   */
+  protected def doEstimateMemorySize(): Option[Long] = None
+  private[spark] def estimateMemorySize(): Option[Long] = doEstimateMemorySize()
 
   /**
    * Actually unpersist the broadcasted value on the executors. Concrete implementations of

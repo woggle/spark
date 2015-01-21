@@ -190,6 +190,11 @@ class TaskMetrics extends Serializable {
   }
 
   /**
+   * Records broadcasts read from this task.
+   */
+  var accessedBroadcasts: Option[Seq[Long]] = None
+
+  /**
    * A task may have multiple shuffle readers for multiple dependencies. To avoid synchronization
    * issues from readers in different threads, in-progress tasks use a ShuffleReadMetrics for each
    * dependency, and merge these metrics before reporting them to the driver. This method returns

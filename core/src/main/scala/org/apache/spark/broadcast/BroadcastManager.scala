@@ -24,10 +24,14 @@ import scala.reflect.ClassTag
 import org.apache.spark._
 import org.apache.spark.util.Utils
 
+import org.apache.spark.scheduler.LiveListenerBus
+import org.apache.spark.scheduler.SparkListenerBroadcastCreated
+
 private[spark] class BroadcastManager(
     val isDriver: Boolean,
     conf: SparkConf,
-    securityManager: SecurityManager)
+    securityManager: SecurityManager,
+    listenerBus: LiveListenerBus = null)
   extends Logging {
 
   private var initialized = false
@@ -60,7 +64,15 @@ private[spark] class BroadcastManager(
   private val nextBroadcastId = new AtomicLong(0)
 
   def newBroadcast[T: ClassTag](value_ : T, isLocal: Boolean): Broadcast[T] = {
-    broadcastFactory.newBroadcast[T](value_, isLocal, nextBroadcastId.getAndIncrement())
+    val broadcast = broadcastFactory.newBroadcast[T](value_,
+      isLocal, nextBroadcastId.getAndIncrement())
+    if (listenerBus != null) {
+      listenerBus.post(
+        SparkListenerBroadcastCreated(broadcast.id,
+                                      broadcast.estimateMemorySize(),
+                                      broadcast.estimateSerializedSize()))
+    }
+    broadcast
   }
 
   def unbroadcast(id: Long, removeFromDriver: Boolean, blocking: Boolean) {

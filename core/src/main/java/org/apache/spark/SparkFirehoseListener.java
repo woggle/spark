@@ -118,4 +118,8 @@ public class SparkFirehoseListener implements SparkListener {
         onEvent(blockUpdated);
     }
 
+    @Override
+    public final void onBroadcastCreated(SparkListenerBroadcastCreated broadcastCreated) {
+        onEvent(broadcastCreated);
+    }
 }

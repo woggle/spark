@@ -75,6 +75,7 @@ class JsonProtocolSuite extends SparkFunSuite {
       BlockManagerId("Scarce", "to be counted...", 100))
     val unpersistRdd = SparkListenerUnpersistRDD(12345)
     val logUrlMap = Map("stderr" -> "mystderr", "stdout" -> "mystdout").toMap
+    val broadcastCreated = SparkListenerBroadcastCreated(12345L, Some(5000L), Some(4000L))
     val applicationStart = SparkListenerApplicationStart("The winner of all", Some("appId"),
       42L, "Garfield", Some("appAttempt"))
     val applicationStartWithLogs = SparkListenerApplicationStart("The winner of all", Some("appId"),
@@ -100,6 +101,7 @@ class JsonProtocolSuite extends SparkFunSuite {
     testEvent(blockManagerAdded, blockManagerAddedJsonString)
     testEvent(blockManagerRemoved, blockManagerRemovedJsonString)
     testEvent(unpersistRdd, unpersistRDDJsonString)
+    testEvent(broadcastCreated, broadcastCreatedJsonString)
     testEvent(applicationStart, applicationStartJsonString)
     testEvent(applicationStartWithLogs, applicationStartJsonWithLogUrlsString)
     testEvent(applicationEnd, applicationEndJsonString)
@@ -487,6 +489,11 @@ class JsonProtocolSuite extends SparkFunSuite {
           assert(stageAttemptId1 === stageAttemptId2)
           assertEquals(metrics1, metrics2)
         })
+        assert(e1.executorId == e1.executorId)
+      case (e1: SparkListenerBroadcastCreated, e2: SparkListenerBroadcastCreated) =>
+        assert(e1.broadcastId == e2.broadcastId)
+        assert(e1.memorySize == e2.memorySize)
+        assert(e1.serializedSize == e2.serializedSize)
       case (e1, e2) =>
         assert(e1 === e2)
       case _ => fail("Events don't match in types!")
@@ -1656,6 +1663,16 @@ class JsonProtocolSuite extends SparkFunSuite {
       |{
       |  "Event": "SparkListenerUnpersistRDD",
       |  "RDD ID": 12345
+      |}
+    """
+
+  private val broadcastCreatedJsonString =
+    """
+      |{
+      |  "Event": "SparkListenerBroadcastCreated",
+      |  "Broadcast ID": 12345,
+      |  "Memory Size": 5000,
+      |  "Serialized Size": 4000
       |}
     """
 
