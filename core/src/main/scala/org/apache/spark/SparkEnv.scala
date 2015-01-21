@@ -293,7 +293,7 @@ object SparkEnv extends Logging {
       serializer, conf, mapOutputTracker, shuffleManager, blockTransferService, securityManager,
       numUsableCores)
 
-    val broadcastManager = new BroadcastManager(isDriver, conf, securityManager)
+    val broadcastManager = new BroadcastManager(isDriver, conf, securityManager, listenerBus)
 
     val cacheManager = new CacheManager(blockManager)
 
