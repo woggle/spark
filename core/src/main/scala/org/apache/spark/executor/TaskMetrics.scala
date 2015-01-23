@@ -25,7 +25,7 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.spark.SparkEnv
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.executor.DataReadMethod.DataReadMethod
-import org.apache.spark.storage.{BlockId, BlockStatus}
+import org.apache.spark.storage.{BlockId, BlockStatus, ShuffleBlockId}
 import org.apache.spark.util.Utils
 
 /**
@@ -181,6 +181,12 @@ class TaskMetrics extends Serializable {
    *
    * This record should not include blocks that are not accessed directly by this task, for
    * example blocks which are evicted to disk because this task stores a block.
+   *
+   * Shuffles will be recorded here using ShuffleBlockId() and map ID 0 for reads and
+   * reduce ID 0 for writes. Such records stand in for the entire shuffle being read/written.
+   *
+   * RDD block ID accesses should always have InputMetrics recorded with them if they did
+   * not require recomputation.
    */
   var accessedBlocks: Option[Seq[(BlockId, BlockAccess)]] = None
 
@@ -190,9 +196,20 @@ class TaskMetrics extends Serializable {
   }
 
   /**
-   * Records broadcasts read from this task.
+   * Records (shuffle ID, map ID) of shuffles written by this task.
    */
-  var accessedBroadcasts: Option[Seq[Long]] = None
+  private[spark] def recordWriteShuffle(shuffleId: Int, mapId: Int) {
+    recordBlockAccess(ShuffleBlockId(shuffleId, mapId, 0), BlockAccess(BlockAccessType.Write))
+  }
+
+  /**
+   * Records (shuffle ID, start partition ID, end partition ID) of shuffles read by this task.
+   */
+  private[spark] def recordReadShuffle(shuffleId: Int, startPartition: Int, endPartition: Int) {
+    for (partition <- startPartition to endPartition) {
+      recordBlockAccess(ShuffleBlockId(shuffleId, 0, partition), BlockAccess(BlockAccessType.Read))
+    }
+  }
 
   /**
    * A task may have multiple shuffle readers for multiple dependencies. To avoid synchronization

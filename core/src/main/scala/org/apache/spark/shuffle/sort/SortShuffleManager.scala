@@ -115,6 +115,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       startPartition: Int,
       endPartition: Int,
       context: TaskContext): ShuffleReader[K, C] = {
+    context.taskMetrics.recordReadShuffle(handle.shuffleId, startPartition, endPartition)
     new BlockStoreShuffleReader(
       handle.asInstanceOf[BaseShuffleHandle[K, _, C]], startPartition, endPartition, context)
   }
@@ -124,6 +125,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       handle: ShuffleHandle,
       mapId: Int,
       context: TaskContext): ShuffleWriter[K, V] = {
+    context.taskMetrics.recordWriteShuffle(handle.shuffleId, mapId)
     numMapsForShuffle.putIfAbsent(
       handle.shuffleId, handle.asInstanceOf[BaseShuffleHandle[_, _, _]].numMaps)
     val env = SparkEnv.get
