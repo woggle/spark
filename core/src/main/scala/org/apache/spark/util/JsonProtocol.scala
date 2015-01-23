@@ -264,6 +264,20 @@ private[spark] object JsonProtocol {
           ("Access" -> blockAccessToJson(access))
         })
       }.getOrElse(JNothing)
+    val accessedBroadcasts =
+      taskMetrics.accessedBroadcasts.map { ids => JArray(ids.map(JInt(_)).toList) }
+    val writtenShuffles =
+      taskMetrics.writtenShuffles.map { shuffleIds =>
+        JArray(shuffleIds.map(JInt(_)).toList)
+      }.getOrElse(JNothing)
+    val readShuffles =
+      taskMetrics.readShuffles.map { shuffleParts =>
+        JArray(shuffleParts.toList.map { case (id, start, end) =>
+          ("Shuffle ID" -> id) ~
+          ("Start Partition" -> start) ~
+          ("End Partition" -> end)
+        })
+      }.getOrElse(JNothing)
     ("Host Name" -> taskMetrics.hostname) ~
     ("Executor Deserialize Time" -> taskMetrics.executorDeserializeTime) ~
     ("Executor Run Time" -> taskMetrics.executorRunTime) ~
@@ -278,7 +292,10 @@ private[spark] object JsonProtocol {
     ("Input Metrics" -> inputMetrics) ~
     ("Output Metrics" -> outputMetrics) ~
     ("Updated Blocks" -> updatedBlocks) ~
-    ("Accessed Blocks" -> accessedBlocks)
+    ("Accessed Blocks" -> accessedBlocks) ~
+    ("Accessed Broadcast IDs" -> accessedBroadcasts) ~
+    ("Written Shuffle IDs" -> taskMetrics.writtenShuffles) ~
+    ("Read Shuffles" -> readShuffles)
   }
 
   def shuffleReadMetricsToJson(shuffleReadMetrics: ShuffleReadMetrics): JValue = {
@@ -645,6 +662,23 @@ private[spark] object JsonProtocol {
           val id = BlockId((block \ "Block ID").extract[String])
           val access = blockAccessFromJson(block \ "Access")
           (id, access)
+        }
+      }
+    metrics.accessedBroadcasts =
+      Utils.jsonOption(json \ "Accessed Broadcast IDs").map { value =>
+        value.extract[List[JValue]].map { id => id.extract[Long] }
+      }
+    metrics.writtenShuffles =
+      Utils.jsonOption(json \ "Written Shuffle IDs").map { value =>
+        value.extract[List[JValue]].map { id => id.extract[Int] }
+      }
+    metrics.readShuffles =
+      Utils.jsonOption(json \ "Read Shuffles").map { value =>
+        value.extract[List[JValue]].map { shufflePart =>
+          val id = (shufflePart \ "Shuffle ID").extract[Int]
+          val startPartition = (shufflePart \ "Start Partitoin").extract[Int]
+          val endPartition = (shufflePart \ "End Partition").extract[Int]
+          (id, startPartition, endPartition)
         }
       }
     metrics
