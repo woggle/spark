@@ -187,6 +187,11 @@ trait SparkListener {
    * Called when the driver receives task metrics from an executor in a heartbeat.
    */
   def onExecutorMetricsUpdate(executorMetricsUpdate: SparkListenerExecutorMetricsUpdate) { }
+
+  /**
+   * Called when a broadcast is registered.
+   */
+  def onBroadcastCreated(broadcastCreated: SparkListenerBroadcastCreated) { }
 }
 
 /**
