@@ -48,6 +48,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       endPartition: Int,
       context: TaskContext): ShuffleReader[K, C] = {
     // We currently use the same block store shuffle fetcher as the hash-based shuffle.
+    context.taskMetrics.recordReadShuffle(handle.shuffleId, startPartition, endPartition)
     new HashShuffleReader(
       handle.asInstanceOf[BaseShuffleHandle[K, _, C]], startPartition, endPartition, context)
   }
@@ -55,6 +56,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
   /** Get a writer for a given partition. Called on executors by map tasks. */
   override def getWriter[K, V](handle: ShuffleHandle, mapId: Int, context: TaskContext)
       : ShuffleWriter[K, V] = {
+    context.taskMetrics.recordWriteShuffle(handle.shuffleId, mapId)
     val baseShuffleHandle = handle.asInstanceOf[BaseShuffleHandle[K, V, _]]
     shuffleMapNumber.putIfAbsent(baseShuffleHandle.shuffleId, baseShuffleHandle.numMaps)
     new SortShuffleWriter(
