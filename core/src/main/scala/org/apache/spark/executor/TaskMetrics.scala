@@ -146,6 +146,27 @@ class TaskMetrics extends Serializable {
   var accessedBroadcasts: Option[Seq[Long]] = None
 
   /**
+   * Records shuffle IDs of shuffles written by this task.
+   */
+  var writtenShuffles: Option[Seq[Int]] = None
+
+  private[spark] def recordWriteShuffle(shuffleId: Int) {
+    val oldWrittenShuffles = writtenShuffles.getOrElse(Seq[Int]())
+    writtenShuffles = Some(oldWrittenShuffles :+ shuffleId)
+  }
+
+  /**
+   * Records (shuffle ID, start partition ID, end partition ID) of shuffles read by this task.
+   */
+  var readShuffles: Option[Seq[(Int, Int, Int)]] = None
+
+  private[spark] def recordReadShuffle(shuffleId: Int, startPartition: Int, endPartition: Int) {
+    val oldReadShuffles = readShuffles.getOrElse(Seq[(Int, Int, Int)]())
+    val newItem = (shuffleId, startPartition, endPartition)
+    readShuffles = Some(oldReadShuffles :+ newItem)
+  }
+
+  /**
    * A task may have multiple shuffle readers for multiple dependencies. To avoid synchronization
    * issues from readers in different threads, in-progress tasks use a ShuffleReadMetrics for each
    * dependency, and merge these metrics before reporting them to the driver. This method returns
