@@ -267,8 +267,11 @@ private[spark] object JsonProtocol {
     val accessedBroadcasts =
       taskMetrics.accessedBroadcasts.map { ids => JArray(ids.map(JInt(_)).toList) }
     val writtenShuffles =
-      taskMetrics.writtenShuffles.map { shuffleIds =>
-        JArray(shuffleIds.map(JInt(_)).toList)
+      taskMetrics.writtenShuffles.map { shuffleParts =>
+        JArray(shuffleParts.toList.map { case (id, mapId) =>
+          ("Shuffle ID" -> id) ~
+          ("Map ID" -> mapId)
+        })
       }.getOrElse(JNothing)
     val readShuffles =
       taskMetrics.readShuffles.map { shuffleParts =>
@@ -294,7 +297,7 @@ private[spark] object JsonProtocol {
     ("Updated Blocks" -> updatedBlocks) ~
     ("Accessed Blocks" -> accessedBlocks) ~
     ("Accessed Broadcast IDs" -> accessedBroadcasts) ~
-    ("Written Shuffle IDs" -> taskMetrics.writtenShuffles) ~
+    ("Written Shuffles" -> writtenShuffles) ~
     ("Read Shuffles" -> readShuffles)
   }
 
@@ -669,14 +672,18 @@ private[spark] object JsonProtocol {
         value.extract[List[JValue]].map { id => id.extract[Long] }
       }
     metrics.writtenShuffles =
-      Utils.jsonOption(json \ "Written Shuffle IDs").map { value =>
-        value.extract[List[JValue]].map { id => id.extract[Int] }
+      Utils.jsonOption(json \ "Written Shuffles").map { value =>
+        value.extract[List[JValue]].map { shufflePart =>
+          val id = (shufflePart \ "Shuffle ID").extract[Int]
+          val mapId = (shufflePart \ "Map ID").extract[Int]
+          (id, mapId)
+        }
       }
     metrics.readShuffles =
       Utils.jsonOption(json \ "Read Shuffles").map { value =>
         value.extract[List[JValue]].map { shufflePart =>
           val id = (shufflePart \ "Shuffle ID").extract[Int]
-          val startPartition = (shufflePart \ "Start Partitoin").extract[Int]
+          val startPartition = (shufflePart \ "Start Partition").extract[Int]
           val endPartition = (shufflePart \ "End Partition").extract[Int]
           (id, startPartition, endPartition)
         }
