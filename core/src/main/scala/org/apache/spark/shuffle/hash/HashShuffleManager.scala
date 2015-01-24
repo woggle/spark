@@ -53,7 +53,7 @@ private[spark] class HashShuffleManager(conf: SparkConf) extends ShuffleManager 
   /** Get a writer for a given partition. Called on executors by map tasks. */
   override def getWriter[K, V](handle: ShuffleHandle, mapId: Int, context: TaskContext)
       : ShuffleWriter[K, V] = {
-    context.taskMetrics.recordWriteShuffle(handle.shuffleId)
+    context.taskMetrics.recordWriteShuffle(handle.shuffleId, mapId)
     new HashShuffleWriter(
       shuffleBlockManager, handle.asInstanceOf[BaseShuffleHandle[K, V, _]], mapId, context)
   }

@@ -148,11 +148,12 @@ class TaskMetrics extends Serializable {
   /**
    * Records shuffle IDs of shuffles written by this task.
    */
-  var writtenShuffles: Option[Seq[Int]] = None
+  var writtenShuffles: Option[Seq[(Int, Int)]] = None
 
-  private[spark] def recordWriteShuffle(shuffleId: Int) {
-    val oldWrittenShuffles = writtenShuffles.getOrElse(Seq[Int]())
-    writtenShuffles = Some(oldWrittenShuffles :+ shuffleId)
+  private[spark] def recordWriteShuffle(shuffleId: Int, mapId: Int) {
+    val oldWrittenShuffles = writtenShuffles.getOrElse(Seq[(Int, Int)]())
+    val newItem = (shuffleId, mapId)
+    writtenShuffles = Some(oldWrittenShuffles :+ newItem)
   }
 
   /**
