@@ -104,7 +104,9 @@ case class Aggregator[K, V, C] (
         kc = iter.next()
         combiners.changeValue(kc._1, update)
       }
-      incrementMemoryMetrics(context, SizeEstimator.estimate(combiners), combiners.size)
+      TaskMetrics.ifExtraMetrics {
+        incrementMemoryMetrics(context, SizeEstimator.estimate(combiners), combiners.size)
+      }
       combiners.iterator
     } else {
       val combiners = new ExternalAppendOnlyMap[K, C, C](identity, mergeCombiners, mergeCombiners)
