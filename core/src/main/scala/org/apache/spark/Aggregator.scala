@@ -38,15 +38,6 @@ case class Aggregator[K, V, C] (
 
   private val externalSorting = SparkEnv.get.conf.getBoolean("spark.shuffle.spill", true)
 
-  private def incrementMemoryMetrics(context: TaskContext, bytes: Long, groups: Long) {
-    Option(context).foreach { c =>
-      val memoryMetrics = c.taskMetrics.shuffleMemoryMetrics.getOrElse(new ShuffleMemoryMetrics)
-      memoryMetrics.shuffleOutputGroups += groups
-      memoryMetrics.shuffleOutputBytes += bytes
-      c.taskMetrics.shuffleMemoryMetrics = Some(memoryMetrics)
-    }
-  }
-
   @deprecated("use combineValuesByKey with TaskContext argument", "0.9.0")
   def combineValuesByKey(iter: Iterator[_ <: Product2[K, V]]): Iterator[(K, C)] =
     combineValuesByKey(iter, null)
@@ -64,7 +55,9 @@ case class Aggregator[K, V, C] (
         combiners.changeValue(kv._1, update)
       }
       TaskMetrics.ifExtraMetrics {
-        incrementMemoryMetrics(context, SizeEstimator.estimate(combiners), combiners.size)
+        Option(context).foreach { case c =>
+          c.taskMetrics.incrementMemoryMetrics(SizeEstimator.estimate(combiners), combiners.size)
+        }
       }
       combiners.iterator
     } else {
@@ -78,7 +71,7 @@ case class Aggregator[K, V, C] (
       }
       if (TaskMetrics.extraMetricsEnabled) {
         val updateMetrics = (totalBytes: Long, totalEntries: Long) => {
-          incrementMemoryMetrics(context, totalBytes, totalEntries)
+          Option(context).foreach(_.taskMetrics.incrementMemoryMetrics(totalBytes, totalEntries))
         }
         new SizeTrackingIterator(combiners.iterator, updateMetrics)
       } else {
@@ -105,7 +98,8 @@ case class Aggregator[K, V, C] (
         combiners.changeValue(kc._1, update)
       }
       TaskMetrics.ifExtraMetrics {
-        incrementMemoryMetrics(context, SizeEstimator.estimate(combiners), combiners.size)
+        context.taskMetrics.incrementMemoryMetrics(SizeEstimator.estimate(combiners),
+                                                   combiners.size)
       }
       combiners.iterator
     } else {
@@ -120,10 +114,14 @@ case class Aggregator[K, V, C] (
         c.taskMetrics.memoryBytesSpilled += combiners.memoryBytesSpilled
         c.taskMetrics.diskBytesSpilled += combiners.diskBytesSpilled
       }
-      val updateMetrics = (totalBytes: Long, totalEntries: Long) => {
-        incrementMemoryMetrics(context, totalBytes, totalEntries)
+      if (TaskMetrics.extraMetricsEnabled) {
+        val updateMetrics = (totalBytes: Long, totalEntries: Long) => {
+          Option(context).foreach(_.taskMetrics.incrementMemoryMetrics(totalBytes, totalEntries))
+        }
+        new SizeTrackingIterator(combiners.iterator, updateMetrics)
+      } else {
+        combiners.iterator
       }
-      new SizeTrackingIterator(combiners.iterator, updateMetrics)
     }
   }
 }

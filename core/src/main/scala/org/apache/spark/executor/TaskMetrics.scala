@@ -128,6 +128,16 @@ class TaskMetrics extends Serializable {
   var shuffleMemoryMetrics: Option[ShuffleMemoryMetrics] = None
 
   /**
+   * Add to output in-memory size metrics.
+   */
+  private[spark] def incrementMemoryMetrics(bytes: Long, groups: Long) {
+    val memoryMetrics = shuffleMemoryMetrics.getOrElse(new ShuffleMemoryMetrics)
+    memoryMetrics.shuffleOutputGroups += groups
+    memoryMetrics.shuffleOutputBytes += bytes
+    shuffleMemoryMetrics = Some(memoryMetrics)
+  }
+
+  /**
    * Records of each attempted explicit block access and its result, in chronological order.
    *
    * This record should not include blocks that are not accessed directly by this task, for
