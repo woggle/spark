@@ -105,6 +105,8 @@ private[spark] class EventLoggingListener(
     logEvent(event)
   override def onEnvironmentUpdate(event: SparkListenerEnvironmentUpdate) =
     logEvent(event)
+  override def onBroadcastCreated(event: SparkListenerBroadcastCreated) =
+    logEvent(event)
 
   // Events that trigger a flush
   override def onStageCompleted(event: SparkListenerStageCompleted) =
