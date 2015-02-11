@@ -83,6 +83,8 @@ private[spark] object JsonProtocol {
         applicationStartToJson(applicationStart)
       case applicationEnd: SparkListenerApplicationEnd =>
         applicationEndToJson(applicationEnd)
+      case broadcastCreated : SparkListenerBroadcastCreated =>
+        broadcastCreatedToJson(broadcastCreated)
 
       // These aren't used, but keeps compiler happy
       case SparkListenerShutdown => JNothing
@@ -192,6 +194,13 @@ private[spark] object JsonProtocol {
   def applicationEndToJson(applicationEnd: SparkListenerApplicationEnd): JValue = {
     ("Event" -> Utils.getFormattedClassName(applicationEnd)) ~
     ("Timestamp" -> applicationEnd.time)
+  }
+
+  def broadcastCreatedToJson(broadcastCreated: SparkListenerBroadcastCreated): JValue = {
+    ("Event" -> Utils.getFormattedClassName(broadcastCreated)) ~
+    ("Broadcast ID" -> broadcastCreated.id) ~
+    ("Memory Size" -> broadcastCreated.memorySize.map(JInt(_)).getOrElse(JNothing)) ~
+    ("Serialized Size" -> broadcastCreated.serializedSize.map(JInt(_)).getOrElse(JNothing))
   }
 
 
@@ -457,6 +466,7 @@ private[spark] object JsonProtocol {
     val unpersistRDD = Utils.getFormattedClassName(SparkListenerUnpersistRDD)
     val applicationStart = Utils.getFormattedClassName(SparkListenerApplicationStart)
     val applicationEnd = Utils.getFormattedClassName(SparkListenerApplicationEnd)
+    val broadcastCreated = Utils.getFormattedClassName(SparkListenerBroadcastCreated)
 
     (json \ "Event").extract[String] match {
       case `stageSubmitted` => stageSubmittedFromJson(json)
@@ -472,6 +482,7 @@ private[spark] object JsonProtocol {
       case `unpersistRDD` => unpersistRDDFromJson(json)
       case `applicationStart` => applicationStartFromJson(json)
       case `applicationEnd` => applicationEndFromJson(json)
+      case `broadcastCreated` => broadcastCreatedFromJson(json)
     }
   }
 
@@ -562,6 +573,13 @@ private[spark] object JsonProtocol {
 
   def applicationEndFromJson(json: JValue): SparkListenerApplicationEnd = {
     SparkListenerApplicationEnd((json \ "Timestamp").extract[Long])
+  }
+
+  def broadcastCreatedFromJson(json: JValue): SparkListenerBroadcastCreated = {
+    val id = (json \ "Broadcast ID").extract[Long]
+    val memorySize = Utils.jsonOption(json \ "Memory Size").map(_.extract[Long])
+    val serializedSize = Utils.jsonOption(json \ "Serialized Size").map(_.extract[Long])
+    SparkListenerBroadcastCreated(id, memorySize, serializedSize)
   }
 
 
