@@ -198,7 +198,7 @@ private[spark] object JsonProtocol {
 
   def broadcastCreatedToJson(broadcastCreated: SparkListenerBroadcastCreated): JValue = {
     ("Event" -> Utils.getFormattedClassName(broadcastCreated)) ~
-    ("Broadcast ID" -> broadcastCreated.id) ~
+    ("Broadcast ID" -> broadcastCreated.broadcastId) ~
     ("Memory Size" -> broadcastCreated.memorySize.map(JInt(_)).getOrElse(JNothing)) ~
     ("Serialized Size" -> broadcastCreated.serializedSize.map(JInt(_)).getOrElse(JNothing))
   }
