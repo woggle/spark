@@ -21,7 +21,10 @@ import java.io.Serializable
 
 import org.apache.spark.SparkException
 import org.apache.spark.Logging
+import org.apache.spark.executor.BlockAccess
+import org.apache.spark.executor.BlockAccessType
 import org.apache.spark.executor.TaskMetrics
+import org.apache.spark.storage.BroadcastBlockId
 import org.apache.spark.util.Utils
 
 import scala.reflect.ClassTag
@@ -72,9 +75,7 @@ abstract class Broadcast[T: ClassTag](val id: Long) extends Serializable with Lo
       val context = org.apache.spark.TaskContext.get()
       if (context != null) {
         val metrics = context.taskMetrics()
-        metrics.accessedBroadcasts = Some(
-          metrics.accessedBroadcasts.getOrElse(Nil).toSeq ++ Seq(id)
-        )
+        metrics.recordBlockAccess(BroadcastBlockId(id), BlockAccess(BlockAccessType.Read))
       }
     }
     getValue()

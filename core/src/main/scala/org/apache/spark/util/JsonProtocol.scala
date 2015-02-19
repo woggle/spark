@@ -273,23 +273,6 @@ private[spark] object JsonProtocol {
           ("Access" -> blockAccessToJson(access))
         })
       }.getOrElse(JNothing)
-    val accessedBroadcasts =
-      taskMetrics.accessedBroadcasts.map { ids => JArray(ids.map(JInt(_)).toList) }
-    val writtenShuffles =
-      taskMetrics.writtenShuffles.map { shuffleParts =>
-        JArray(shuffleParts.toList.map { case (id, mapId) =>
-          ("Shuffle ID" -> id) ~
-          ("Map ID" -> mapId)
-        })
-      }.getOrElse(JNothing)
-    val readShuffles =
-      taskMetrics.readShuffles.map { shuffleParts =>
-        JArray(shuffleParts.toList.map { case (id, start, end) =>
-          ("Shuffle ID" -> id) ~
-          ("Start Partition" -> start) ~
-          ("End Partition" -> end)
-        })
-      }.getOrElse(JNothing)
     ("Host Name" -> taskMetrics.hostname) ~
     ("Executor Deserialize Time" -> taskMetrics.executorDeserializeTime) ~
     ("Executor Run Time" -> taskMetrics.executorRunTime) ~
@@ -304,10 +287,7 @@ private[spark] object JsonProtocol {
     ("Input Metrics" -> inputMetrics) ~
     ("Output Metrics" -> outputMetrics) ~
     ("Updated Blocks" -> updatedBlocks) ~
-    ("Accessed Blocks" -> accessedBlocks) ~
-    ("Accessed Broadcast IDs" -> accessedBroadcasts) ~
-    ("Written Shuffles" -> writtenShuffles) ~
-    ("Read Shuffles" -> readShuffles)
+    ("Accessed Blocks" -> accessedBlocks)
   }
 
   def shuffleReadMetricsToJson(shuffleReadMetrics: ShuffleReadMetrics): JValue = {
