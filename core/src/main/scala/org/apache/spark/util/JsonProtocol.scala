@@ -665,27 +665,6 @@ private[spark] object JsonProtocol {
           (id, access)
         }
       }
-    metrics.accessedBroadcasts =
-      Utils.jsonOption(json \ "Accessed Broadcast IDs").map { value =>
-        value.extract[List[JValue]].map { id => id.extract[Long] }
-      }
-    metrics.writtenShuffles =
-      Utils.jsonOption(json \ "Written Shuffles").map { value =>
-        value.extract[List[JValue]].map { shufflePart =>
-          val id = (shufflePart \ "Shuffle ID").extract[Int]
-          val mapId = (shufflePart \ "Map ID").extract[Int]
-          (id, mapId)
-        }
-      }
-    metrics.readShuffles =
-      Utils.jsonOption(json \ "Read Shuffles").map { value =>
-        value.extract[List[JValue]].map { shufflePart =>
-          val id = (shufflePart \ "Shuffle ID").extract[Int]
-          val startPartition = (shufflePart \ "Start Partition").extract[Int]
-          val endPartition = (shufflePart \ "End Partition").extract[Int]
-          (id, startPartition, endPartition)
-        }
-      }
     metrics
   }
 
