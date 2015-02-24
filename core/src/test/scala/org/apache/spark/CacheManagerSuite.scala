@@ -106,10 +106,12 @@ class CacheManagerSuite extends FunSuite with BeforeAndAfter with EasyMockSugar 
     cacheManager = sc.env.cacheManager
     val context = new TaskContextImpl(0, 0, 0)
     cacheManager.getOrCompute(rdd3, split, context, StorageLevel.MEMORY_ONLY)
+    val unavailableInputMetrics = InputMetrics(DataReadMethod.Unavailable)
+    val unavailableRead = BlockAccess(BlockAccessType.Read, Some(unavailableInputMetrics))
     assert(context.taskMetrics.updatedBlocks.getOrElse(Seq()).size === 2)
     assert(context.taskMetrics.accessedBlocks == Some(Seq(
-        RDDBlockId(rdd3.id, split.index) -> BlockAccess(BlockAccessType.Read, None),
-        RDDBlockId(rdd2.id, split.index) -> BlockAccess(BlockAccessType.Read, None),
+        RDDBlockId(rdd3.id, split.index) -> unavailableRead,
+        RDDBlockId(rdd2.id, split.index) -> unavailableRead,
         RDDBlockId(rdd2.id, split.index) -> BlockAccess(BlockAccessType.Write),
         RDDBlockId(rdd3.id, split.index) -> BlockAccess(BlockAccessType.Write)
     )))

@@ -67,6 +67,7 @@ class JsonProtocolSuite extends FunSuite {
     val blockManagerRemoved = SparkListenerBlockManagerRemoved(2L,
       BlockManagerId("Scarce", "to be counted...", 100))
     val unpersistRdd = SparkListenerUnpersistRDD(12345)
+    val broadcastCreated = SparkListenerBroadcastCreated(12345L, Some(5000L), Some(4000L))
     val applicationStart = SparkListenerApplicationStart("The winner of all", None, 42L, "Garfield")
     val applicationEnd = SparkListenerApplicationEnd(42L)
 
@@ -83,6 +84,7 @@ class JsonProtocolSuite extends FunSuite {
     testEvent(blockManagerAdded, blockManagerAddedJsonString)
     testEvent(blockManagerRemoved, blockManagerRemovedJsonString)
     testEvent(unpersistRdd, unpersistRDDJsonString)
+    testEvent(broadcastCreated, broadcastCreatedJsonString)
     testEvent(applicationStart, applicationStartJsonString)
     testEvent(applicationEnd, applicationEndJsonString)
   }
@@ -344,6 +346,10 @@ class JsonProtocolSuite extends FunSuite {
         assertEquals(e1.blockManagerId, e2.blockManagerId)
       case (e1: SparkListenerUnpersistRDD, e2: SparkListenerUnpersistRDD) =>
         assert(e1.rddId == e2.rddId)
+      case (e1: SparkListenerBroadcastCreated, e2: SparkListenerBroadcastCreated) =>
+        assert(e1.broadcastId == e2.broadcastId)
+        assert(e1.memorySize == e2.memorySize)
+        assert(e1.serializedSize == e2.serializedSize)
       case (e1: SparkListenerApplicationStart, e2: SparkListenerApplicationStart) =>
         assert(e1.appName == e2.appName)
         assert(e1.time == e2.time)
@@ -416,6 +422,7 @@ class JsonProtocolSuite extends FunSuite {
     assertOptionEquals(
       metrics1.inputMetrics, metrics2.inputMetrics, assertInputMetricsEquals)
     assertOptionEquals(metrics1.updatedBlocks, metrics2.updatedBlocks, assertBlocksEquals)
+    assertOptionEquals(metrics1.accessedBlocks, metrics2.accessedBlocks, assertAccessedBlocksEquals)
   }
 
   private def assertEquals(metrics1: ShuffleReadMetrics, metrics2: ShuffleReadMetrics) {
@@ -548,6 +555,16 @@ class JsonProtocolSuite extends FunSuite {
     assertSeqEquals(blocks1, blocks2, assertBlockEquals)
   }
 
+  private def assertAccessedBlockEquals(b1: (BlockId, BlockAccess), b2: (BlockId, BlockAccess)) {
+    assert(b1 === b2)
+  }
+
+  private def assertAccessedBlocksEquals(
+      blocks1: Seq[(BlockId, BlockAccess)],
+      blocks2: Seq[(BlockId, BlockAccess)]) {
+    assertSeqEquals(blocks1, blocks2, assertAccessedBlockEquals)
+  }
+
   private def assertBlockEquals(b1: (BlockId, BlockStatus), b2: (BlockId, BlockStatus)) {
     assert(b1 === b2)
   }
@@ -555,7 +572,6 @@ class JsonProtocolSuite extends FunSuite {
   private def assertStackTraceElementEquals(ste1: StackTraceElement, ste2: StackTraceElement) {
     assert(ste1 === ste2)
   }
-
 
   /** ----------------------------------- *
    | Util methods for constructing events |
@@ -647,6 +663,11 @@ class JsonProtocolSuite extends FunSuite {
       val outputMetrics = new OutputMetrics(DataWriteMethod.Hadoop)
       outputMetrics.bytesWritten = a + b + c
       t.outputMetrics = Some(outputMetrics)
+      t.accessedBlocks = Some(Seq(
+        BlockId("rdd_0_0") -> BlockAccess(BlockAccessType.Read,
+                                          Some(new InputMetrics(DataReadMethod.Unavailable))),
+        BlockId("rdd_0_0") -> BlockAccess(BlockAccessType.Write)
+      ))
     } else {
       val sw = new ShuffleWriteMetrics
       sw.shuffleBytesWritten = a + b + c
@@ -1068,6 +1089,24 @@ class JsonProtocolSuite extends FunSuite {
       |          "Disk Size": 0
       |        }
       |      }
+      |    ],
+      |    "Accessed Blocks": [
+      |      {
+      |        "Block ID": "rdd_0_0",
+      |        "Access": {
+      |           "Access Type": "Read",
+      |           "Input Metrics": {
+      |             "Data Read Method": "Unavailable",
+      |             "Bytes Read": 0
+      |           }
+      |         }
+      |      },
+      |      {
+      |        "Block ID": "rdd_0_0",
+      |        "Access": {
+      |           "Access Type": "Write"
+      |         }
+      |      }
       |    ]
       |  }
       |}
@@ -1411,6 +1450,16 @@ class JsonProtocolSuite extends FunSuite {
       |{
       |  "Event": "SparkListenerUnpersistRDD",
       |  "RDD ID": 12345
+      |}
+    """
+
+  private val broadcastCreatedJsonString =
+    """
+      |{
+      |  "Event": "SparkListenerBroadcastCreated",
+      |  "Broadcast ID": 12345,
+      |  "Memory Size": 5000,
+      |  "Serialized Size": 4000
       |}
     """
 

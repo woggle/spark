@@ -57,7 +57,8 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
       case None =>
         // Record the failed read.
         TaskMetrics.ifExtraMetrics {
-          metrics.recordBlockAccess(key, BlockAccess(BlockAccessType.Read, Some(InputMetrics(DataReadMethod.Unavailable))))
+          metrics.recordBlockAccess(key,
+            BlockAccess(BlockAccessType.Read, Some(InputMetrics(DataReadMethod.Unavailable))))
         }
 
         // Acquire a lock for loading this partition
