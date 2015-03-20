@@ -24,6 +24,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.storage._
 import org.apache.spark.executor.{BlockAccess, BlockAccessType, DataReadMethod, InputMetrics}
 import org.apache.spark.executor.TaskMetrics
+import org.apache.spark.util.SizeTrackingIterator
 
 /**
  * Spark class responsible for passing RDDs partition contents to the BlockManager and making
@@ -200,7 +201,20 @@ private[spark] class CacheManager(blockManager: BlockManager) extends Logging {
               useOffHeap = false, deserialized = false, putLevel.replication)
             putInBlockManager[T](key, returnValues, level, updatedBlocks, Some(diskOnlyLevel))
           } else {
-            returnValues
+            if (TaskMetrics.extraMetricsEnabled) {
+              val updateMetrics = (totalBytes: Long, totalEntries: Long) => {
+                Option(TaskContext.get).foreach { c =>
+                  val metrics = c.taskMetrics
+                  val lastUpdatedBlocks = metrics.updatedBlocks.getOrElse(Seq[(BlockId, BlockStatus)]())
+                  metrics.updatedBlocks = Some(lastUpdatedBlocks ++
+                    Seq(key ->  BlockStatus(StorageLevel.NONE, totalBytes, 0L, 0L))
+                  )
+                }
+              }
+              new SizeTrackingIterator(returnValues, updateMetrics)
+            } else {
+              returnValues
+            }
           }
       }
     }
