@@ -77,7 +77,9 @@ private[spark] class SizeTrackingIterator[T](
   }
 
   private def sampleItem(item: AnyRef) {
-    totalBytesSampled += SizeEstimator.estimate(item)
+    val currentSize = SizeEstimator.estimate(item)
+    totalBytesSampled += currentSize
+    totalSamples += 1
     nextSampleNum = math.ceil(totalItems * SAMPLE_GROWTH_RATE).toLong
   }
 
