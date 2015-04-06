@@ -26,6 +26,8 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.spark.{InterruptibleIterator, Partition, Partitioner, SparkEnv, TaskContext}
 import org.apache.spark.{Dependency, OneToOneDependency, ShuffleDependency}
 import org.apache.spark.annotation.DeveloperApi
+import org.apache.spark.executor.{ShuffleMemoryMetrics, TaskMetrics}
+import org.apache.spark.util.{SizeEstimator, SizeTrackingIterator}
 import org.apache.spark.util.collection.{ExternalAppendOnlyMap, AppendOnlyMap, CompactBuffer}
 import org.apache.spark.util.Utils
 import org.apache.spark.serializer.Serializer
@@ -152,6 +154,11 @@ class CoGroupedRDD[K](@transient var rdds: Seq[RDD[_ <: Product2[K, _]]], part: 
           getCombiner(kv._1)(depNum) += kv._2
         }
       }
+      TaskMetrics.ifExtraMetrics {
+        Option(context).foreach { case c =>
+          c.taskMetrics.incrementMemoryMetrics(SizeEstimator.estimate(map), map.size)
+        }
+      }
       new InterruptibleIterator(context,
         map.iterator.asInstanceOf[Iterator[(K, Array[Iterable[_]])]])
     } else {
@@ -161,8 +168,15 @@ class CoGroupedRDD[K](@transient var rdds: Seq[RDD[_ <: Product2[K, _]]], part: 
       }
       context.taskMetrics.memoryBytesSpilled += map.memoryBytesSpilled
       context.taskMetrics.diskBytesSpilled += map.diskBytesSpilled
-      new InterruptibleIterator(context,
-        map.iterator.asInstanceOf[Iterator[(K, Array[Iterable[_]])]])
+      val baseIterator = map.iterator.asInstanceOf[Iterator[(K, Array[Iterable[_]])]]
+      if (TaskMetrics.extraMetricsEnabled) {
+        val updateMetrics = (totalBytes: Long, totalEntries: Long) => {
+          Option(context).foreach(_.taskMetrics.incrementMemoryMetrics(totalBytes, totalEntries))
+        }
+        new InterruptibleIterator(context, new SizeTrackingIterator(baseIterator, updateMetrics))
+      } else {
+        new InterruptibleIterator(context, baseIterator)
+      }
     }
   }
 

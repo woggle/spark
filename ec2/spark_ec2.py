@@ -669,54 +669,6 @@ def wait_for_cluster_state(conn, opts, cluster_instances, cluster_state):
     )
 
 
-# Get number of local disks available for a given EC2 instance type.
-def get_num_disks(instance_type):
-    # Source: http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/InstanceStorage.html
-    # Last Updated: 2014-06-20
-    # For easy maintainability, please keep this manually-inputted dictionary sorted by key.
-    disks_by_instance = {
-        "c1.medium":   1,
-        "c1.xlarge":   4,
-        "c3.2xlarge":  2,
-        "c3.4xlarge":  2,
-        "c3.8xlarge":  2,
-        "c3.large":    2,
-        "c3.xlarge":   2,
-        "cc1.4xlarge": 2,
-        "cc2.8xlarge": 4,
-        "cg1.4xlarge": 2,
-        "cr1.8xlarge": 2,
-        "g2.2xlarge":  1,
-        "hi1.4xlarge": 2,
-        "hs1.8xlarge": 24,
-        "i2.2xlarge":  2,
-        "i2.4xlarge":  4,
-        "i2.8xlarge":  8,
-        "i2.xlarge":   1,
-        "m1.large":    2,
-        "m1.medium":   1,
-        "m1.small":    1,
-        "m1.xlarge":   4,
-        "m2.2xlarge":  1,
-        "m2.4xlarge":  2,
-        "m2.xlarge":   1,
-        "m3.2xlarge":  2,
-        "m3.large":    1,
-        "m3.medium":   1,
-        "m3.xlarge":   2,
-        "r3.2xlarge":  1,
-        "r3.4xlarge":  1,
-        "r3.8xlarge":  2,
-        "r3.large":    1,
-        "r3.xlarge":   1,
-        "t1.micro":    0,
-    }
-    if instance_type in disks_by_instance:
-        return disks_by_instance[instance_type]
-    else:
-        print >> stderr, ("WARNING: Don't know number of disks on instance type %s; assuming 1"
-                          % instance_type)
-        return 1
 
 
 # Deploy the configuration file templates in a given local directory to
