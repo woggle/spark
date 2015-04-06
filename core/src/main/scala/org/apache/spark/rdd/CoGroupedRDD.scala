@@ -27,6 +27,8 @@ import scala.reflect.ClassTag
 import org.apache.spark._
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.util.collection.{CompactBuffer, ExternalAppendOnlyMap}
+import org.apache.spark.executor.{ShuffleMemoryMetrics, TaskMetrics}
+import org.apache.spark.util.{SizeEstimator, SizeTrackingIterator}
 import org.apache.spark.util.Utils
 import org.apache.spark.serializer.Serializer
 
@@ -156,8 +158,15 @@ class CoGroupedRDD[K: ClassTag](
     context.taskMetrics().incDiskBytesSpilled(map.diskBytesSpilled)
     context.internalMetricsToAccumulators(
       InternalAccumulator.PEAK_EXECUTION_MEMORY).add(map.peakMemoryUsedBytes)
-    new InterruptibleIterator(context,
-      map.iterator.asInstanceOf[Iterator[(K, Array[Iterable[_]])]])
+    val baseIterator = map.iterator.asInstanceOf[Iterator[(K, Array[Iterable[_]])]])
+    if (TaskMetrics.extraMetricsEnabled) {
+      val updateMetrics = (totalBytes: Long, totalEntries: Long) => {
+        Option(context).foreach(_.taskMetrics.incrementMemoryMetrics(totalBytes, totalEntries))
+      }
+      new InterruptibleIterator(context, new SizeTrackingIterator(baseIterator, updateMetrics))
+    } else {
+      new InterruptibleIterator(context, baseIterator)
+    }
   }
 
   private def createExternalMap(numRdds: Int)
