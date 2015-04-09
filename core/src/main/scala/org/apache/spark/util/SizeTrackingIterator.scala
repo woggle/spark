@@ -34,6 +34,7 @@ private[spark] class SizeTrackingIterator[T](
    * iterated over, so we sample more frequently.
    */
   private val SAMPLE_GROWTH_RATE = 1.05
+  private val ASSUME_ARRAY_OVERHEAD = 4L
 
   /**
    * Total number of elements sampled.
@@ -61,7 +62,8 @@ private[spark] class SizeTrackingIterator[T](
   private var finished: Boolean = false
 
   def currentSizeEstimate: Long =
-    math.ceil(totalBytesSampled.toDouble * (totalSamples.toDouble / totalItems)).toLong
+    math.ceil(totalBytesSampled.toDouble * (totalItems.toDouble / totalSamples)).toLong +
+    totalItems * ASSUME_ARRAY_OVERHEAD
 
   override def hasNext: Boolean = {
     if (finished) {
