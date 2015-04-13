@@ -313,6 +313,11 @@ class ShuffleReadMetrics extends Serializable {
    * Total number of remote bytes read from the shuffle by this task
    */
   var remoteBytesRead: Long = _
+
+  /**
+   * Total number of local bytes read from the shuffle by this task
+   */
+  var localBytesRead: Long = _
 }
 
 /**
