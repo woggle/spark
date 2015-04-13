@@ -52,7 +52,7 @@ private[spark] class HashShuffleReader[K, C](
     } else {
       // Convert the Product2s to pairs since this is what downstream RDDs currently expect
       val rawIterator = iter.asInstanceOf[Iterator[Product2[K, C]]].map(pair => (pair._1, pair._2))
-      if (TaskMetrics.extraMetricsEnabled) {
+      if (TaskMetrics.extraMetricsEnabled && dep.keyOrdering.isDefined) {
         val updateMetrics = (totalBytes: Long, totalEntries: Long) => {
           Option(context).foreach(_.taskMetrics.incrementMemoryMetrics(totalBytes, totalEntries))
         }
