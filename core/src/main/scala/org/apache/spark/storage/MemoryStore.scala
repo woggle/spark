@@ -60,6 +60,9 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
   private val unrollMemoryThreshold: Long =
     conf.getLong("spark.storage.unrollMemoryThreshold", 1024 * 1024)
 
+  private val seperateUnrollMemory: Boolean =
+    conf.getBoolean("spark.experimental.separateUnrollMemory", false)
+
   if (maxMemory < unrollMemoryThreshold) {
     logWarning(s"Max memory ${Utils.bytesToString(maxMemory)} is less than the initial memory " +
       s"threshold ${Utils.bytesToString(unrollMemoryThreshold)} needed to store a block in " +
@@ -259,7 +262,7 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
                 // If the first request is not granted, try again after ensuring free space
                 // If there is still not enough space, give up and drop the partition
                 val spaceToEnsure = maxUnrollMemory - currentUnrollMemory
-                if (spaceToEnsure > 0) {
+                if (spaceToEnsure > 0 && !seperateUnrollMemory) {
                   val result = ensureFreeSpace(blockId, spaceToEnsure)
                   droppedBlocks ++= result.droppedBlocks
                 }
@@ -381,7 +384,8 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
     }
 
     // Take into account the amount of memory currently occupied by unrolling blocks
-    val actualFreeMemory = freeMemory - currentUnrollMemory
+    val actualFreeMemory =
+      if (seperateUnrollMemory) freeMemory - maxUnrollMemory else freeMemory - currentUnrollMemory
 
     if (actualFreeMemory < space) {
       val rddToAdd = getRddId(blockIdToAdd)
