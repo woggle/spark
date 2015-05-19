@@ -18,8 +18,10 @@
 package org.apache.spark.shuffle.hash
 
 import org.apache.spark.{InterruptibleIterator, TaskContext}
+import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.serializer.Serializer
 import org.apache.spark.shuffle.{BaseShuffleHandle, ShuffleReader}
+import org.apache.spark.util.SizeTrackingIterator
 import org.apache.spark.util.collection.ExternalSorter
 
 private[spark] class HashShuffleReader[K, C](
@@ -49,7 +51,15 @@ private[spark] class HashShuffleReader[K, C](
       require(!dep.mapSideCombine, "Map-side combine without Aggregator specified!")
 
       // Convert the Product2s to pairs since this is what downstream RDDs currently expect
-      iter.asInstanceOf[Iterator[Product2[K, C]]].map(pair => (pair._1, pair._2))
+      val rawIterator = iter.asInstanceOf[Iterator[Product2[K, C]]].map(pair => (pair._1, pair._2))
+      if (TaskMetrics.extraMetricsEnabled && dep.keyOrdering.isDefined) {
+        val updateMetrics = (totalBytes: Long, totalEntries: Long) => {
+          Option(context).foreach(_.taskMetrics.incrementMemoryMetrics(totalBytes, totalEntries))
+        }
+        new SizeTrackingIterator(rawIterator, updateMetrics)
+      } else {
+        rawIterator
+      }
     }
 
     // Sort the output if there is a sort ordering defined.
