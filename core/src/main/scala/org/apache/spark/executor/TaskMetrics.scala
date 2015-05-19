@@ -158,6 +158,25 @@ class TaskMetrics extends Serializable {
   var updatedBlocks: Option[Seq[(BlockId, BlockStatus)]] = None
 
   /**
+   * Estimated size of in-memory data returned from Aggregator iterator.
+   */
+  var shuffleMemoryMetrics: Option[ShuffleMemoryMetrics] = None
+
+  private[spark] def setShuffleMemoryMetrics(_shuffleMemoryMetrics: Option[ShuffleMemoryMetrics]) {
+    shuffleMemoryMetrics = _shuffleMemoryMetrics
+  }
+
+  /**
+   * Add to output in-memory size metrics.
+   */
+  private[spark] def incrementMemoryMetrics(bytes: Long, groups: Long) {
+    val memoryMetrics = shuffleMemoryMetrics.getOrElse(new ShuffleMemoryMetrics)
+    memoryMetrics.shuffleOutputGroups += groups
+    memoryMetrics.shuffleOutputBytes += bytes
+    shuffleMemoryMetrics = Some(memoryMetrics)
+  }
+
+  /**
    * A task may have multiple shuffle readers for multiple dependencies. To avoid synchronization
    * issues from readers in different threads, in-progress tasks use a ShuffleReadMetrics for each
    * dependency, and merge these metrics before reporting them to the driver. This method returns
@@ -412,6 +431,23 @@ class ShuffleReadMetrics extends Serializable {
   def recordsRead: Long = _recordsRead
   private[spark] def incRecordsRead(value: Long) = _recordsRead += value
   private[spark] def decRecordsRead(value: Long) = _recordsRead -= value
+}
+
+/**
+ * :: DeveloperApi ::
+ * Metrics pertaining to shuffle data read in a given task.
+ */
+@DeveloperApi
+class ShuffleMemoryMetrics extends Serializable {
+  /**
+   * Number of groups returned by Aggregators in this task.
+   */
+  var shuffleOutputGroups: Long = 0L
+
+  /**
+   * Estimated in-memory size in bytes returned by Aggregators in this task.
+   */
+  var shuffleOutputBytes: Long = 0L
 }
 
 /**

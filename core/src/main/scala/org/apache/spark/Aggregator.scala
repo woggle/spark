@@ -19,6 +19,8 @@ package org.apache.spark
 
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.util.collection.ExternalAppendOnlyMap
+import org.apache.spark.util.{SizeEstimator, SizeTrackingIterator}
+import org.apache.spark.executor.{ShuffleMemoryMetrics, TaskMetrics}
 
 /**
  * :: DeveloperApi ::
@@ -44,7 +46,14 @@ case class Aggregator[K, V, C] (
     val combiners = new ExternalAppendOnlyMap[K, V, C](createCombiner, mergeValue, mergeCombiners)
     combiners.insertAll(iter)
     updateMetrics(context, combiners)
-    combiners.iterator
+    if (TaskMetrics.extraMetricsEnabled) {
+      val updateSizeMetrics = (totalBytes: Long, totalEntries: Long) => {
+        Option(context).foreach(_.taskMetrics.incrementMemoryMetrics(totalBytes, totalEntries))
+      }
+      new SizeTrackingIterator(combiners.iterator, updateSizeMetrics)
+    } else {
+      combiners.iterator
+    }
   }
 
   @deprecated("use combineCombinersByKey with TaskContext argument", "0.9.0")
@@ -57,7 +66,14 @@ case class Aggregator[K, V, C] (
     val combiners = new ExternalAppendOnlyMap[K, C, C](identity, mergeCombiners, mergeCombiners)
     combiners.insertAll(iter)
     updateMetrics(context, combiners)
-    combiners.iterator
+    if (TaskMetrics.extraMetricsEnabled) {
+      val updateSizeMetrics = (totalBytes: Long, totalEntries: Long) => {
+        Option(context).foreach(_.taskMetrics.incrementMemoryMetrics(totalBytes, totalEntries))
+      }
+      new SizeTrackingIterator(combiners.iterator, updateSizeMetrics)
+    } else {
+      combiners.iterator
+    }
   }
 
   /** Update task metrics after populating the external map. */
