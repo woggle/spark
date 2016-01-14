@@ -304,6 +304,7 @@ private[spark] object TaskMetrics {
   def getCachedHostName(host: String): String = {
     val canonicalHost = hostNameCache.putIfAbsent(host, host)
     if (canonicalHost != null) canonicalHost else host
+  }
   
   def extraMetricsEnabled: Boolean = {
     return SparkEnv.get.conf.getBoolean("spark.extraMetrics.enabled", false)
