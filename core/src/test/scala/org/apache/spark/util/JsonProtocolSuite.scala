@@ -489,7 +489,6 @@ class JsonProtocolSuite extends SparkFunSuite {
           assert(stageAttemptId1 === stageAttemptId2)
           assertEquals(metrics1, metrics2)
         })
-        assert(e1.executorId == e1.executorId)
       case (e1: SparkListenerBroadcastCreated, e2: SparkListenerBroadcastCreated) =>
         assert(e1.broadcastId == e2.broadcastId)
         assert(e1.memorySize == e2.memorySize)
