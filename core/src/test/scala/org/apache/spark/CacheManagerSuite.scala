@@ -113,7 +113,7 @@ class CacheManagerSuite extends SparkFunSuite with LocalSparkContext with Before
     val result = new BlockResult(Array(5, 6, 7).iterator, DataReadMethod.Memory, 12)
     when(blockManager.get(RDDBlockId(0, 0))).thenReturn(Some(result))
 
-    val context = new TaskContextImpl(0, 0, 0, 0, null)
+    val context = TaskContext.empty()
     cacheManager.getOrCompute(rdd, split, context, StorageLevel.MEMORY_ONLY)
     assert(context.taskMetrics.updatedBlocks.getOrElse(Seq()).size === 0)
     val expectInputMetrics = InputMetrics(DataReadMethod.Memory)
