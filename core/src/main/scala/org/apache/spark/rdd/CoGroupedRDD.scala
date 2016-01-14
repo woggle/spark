@@ -158,7 +158,7 @@ class CoGroupedRDD[K: ClassTag](
     context.taskMetrics().incDiskBytesSpilled(map.diskBytesSpilled)
     context.internalMetricsToAccumulators(
       InternalAccumulator.PEAK_EXECUTION_MEMORY).add(map.peakMemoryUsedBytes)
-    val baseIterator = map.iterator.asInstanceOf[Iterator[(K, Array[Iterable[_]])]])
+    val baseIterator = map.iterator.asInstanceOf[Iterator[(K, Array[Iterable[_]])]]
     if (TaskMetrics.extraMetricsEnabled) {
       val updateMetrics = (totalBytes: Long, totalEntries: Long) => {
         Option(context).foreach(_.taskMetrics.incrementMemoryMetrics(totalBytes, totalEntries))
