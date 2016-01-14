@@ -105,7 +105,14 @@ private[spark] class BlockStoreShuffleReader[K, C](
         context.taskMetrics().incDiskBytesSpilled(sorter.diskBytesSpilled)
         context.internalMetricsToAccumulators(
           InternalAccumulator.PEAK_EXECUTION_MEMORY).add(sorter.peakMemoryUsedBytes)
-        CompletionIterator[Product2[K, C], Iterator[Product2[K, C]]](sorter.iterator, sorter.stop())
+        var wrappedIterator = sorter.iterator
+        if (TaskMetrics.extraMetricsEnabled && dep.keyOrdering.isDefined) {
+          val updateMetrics = (totalBytes: Long, totalEntries: Long) => {
+            Option(context).foreach(_.taskMetrics.incrementMemoryMetrics(totalBytes, totalEntries))
+          }
+          wrappedIterator = new SizeTrackingIterator(wrappedIterator, updateMetrics)
+        }
+        CompletionIterator[Product2[K, C], Iterator[Product2[K, C]]](wrappedIterator, sorter.stop())
       case None =>
         aggregatedIter
     }
